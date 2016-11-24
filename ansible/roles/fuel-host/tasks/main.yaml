@@ -46,47 +46,59 @@
     - netifaces
     - enum
 
-# Should also work
-#- name: Checkout fuel repo
-#  git:
-#    repo: https://git.opnfv.org/fuel
-#    dest: /fuel
-#    version: stable/colorado
-#    clone: yes
+- name: Checkout fuel repo
+  git:
+    repo: https://git.opnfv.org/fuel
+    dest: /fuel
+    version: stable/colorado
+    clone: yes
+  when: not use_local
 
 - name: Copy Fuel Repo
   unarchive:
     src: ./fuel-files/fuel.tar.gz
     dest: /
     remote_src: no
+  when: use_local
 
 - name: Download OPNFV Colorado
   get_url:
-    url: http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.2.0.iso
+    url: {{ fuel_url }}
     dest: /fuel/opnfv-colorado.iso
 
 - name: Creates lab directory
   file: path={{item}} state=directory
   with_items:
-    - /fuel/deploy/config/labs/devel-pipeline/telematik-kit
+    - /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}
     - /fuel/deploy/images
 
 - name: Copy lab folder
-  shell: cp -r /fuel/deploy/config/labs/devel-pipeline/elx/* /fuel/deploy/config/labs/devel-pipeline/telematik-kit
+  shell: cp -r /fuel/deploy/config/labs/devel-pipeline/elx/* /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}
 
 - name: Copy dha.yaml
   copy:
     src: ./fuel-files/dha.yaml
-    dest: /fuel/deploy/config/labs/devel-pipeline/telematik-kit/fuel/config/dha.yaml
+    dest: /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}/fuel/config/dha.yaml
     force: true
 
 #[WARNING]: Consider using template or lineinfile module rather than running sed
 #TODO Use lineinfile
+#- name: Adjust qemu config add root user
+#  shell: sed -i 's/#user = "root"/user = "root"/g' /etc/libvirt/qemu.conf
+
 - name: Adjust qemu config add root user
-  shell: sed -i 's/#user = "root"/user = "root"/g' /etc/libvirt/qemu.conf
+  lineinfile:
+    dest: /etc/libvirt/qemu.conf
+    line: "user = \"root\""
+
+#- name: Adjust qemu config add root group
+#  shell: sed -i 's/#group = "root"/group = "root"/g' /etc/libvirt/qemu.conf
 
 - name: Adjust qemu config add root group
-  shell: sed -i 's/#group = "root"/group = "root"/g' /etc/libvirt/qemu.conf
+  lineinfile:
+    dest: /etc/libvirt/qemu.conf
+    line: "group = \"root\""
+
 
 - name: Restart libvirt
   service:
@@ -94,6 +106,7 @@
     state: restarted
 
 - name: Execute fuel
-  shell: bash ./deploy.sh -b file:///fuel/deploy/config/ -l devel-pipeline -p telematik-kit -s no-ha_odl-l2_sfc_heat_ceilometer_scenario.yaml -i file:///fuel/opnfv-colorado.iso
+  shell: bash ./deploy.sh -b file:///fuel/deploy/config/ -l devel-pipeline -p {{ lab_name }} -s {{ scenario }} -i file:///fuel/opnfv-colorado.iso
   args:
     chdir: /fuel/ci
+  when: deploy_fuel

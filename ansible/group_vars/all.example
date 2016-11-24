@@ -1,0 +1,6 @@
+use_local: true
+furl_url: http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.2.0.iso
+lab_name: telematik-kit
+deploy_fuel: true
+scenario: no-ha_odl-l2_sfc_heat_ceilometer_scenario.yaml
+# ha_odl-l2_sfc_heat_ceilometer_scenario.yaml

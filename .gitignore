@@ -1,2 +1,3 @@
 ansible/inventory
 ansible/site.retry
+ansible/group_vars/all
