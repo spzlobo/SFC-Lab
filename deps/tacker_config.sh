@@ -2,11 +2,11 @@
 
 # Script to install/configure tacker on an Apex deployment
 # author: Tim Rozet (trozet@redhat.com)
-# TODO Check if all steps are requiered
 
+#TODO who to optimize?
 SSH_OPTIONS=(-o StrictHostKeyChecking=no -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o LogLevel=error)
 
-instack_mac=$(virsh domiflist instack | grep default | \
+instack_mac=$(virsh domiflist undercloud | grep default | \
                   grep -Eo "[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+")
 UNDERCLOUD=$(/usr/sbin/arp -e | grep ${instack_mac} | awk {'print $1'})
 
@@ -26,14 +26,14 @@ set -o errexit
 sudo -i
 /bin/bash -c "mount -o remount,inode64 /"
 rm -rf python-tackerclient
-git clone https://github.com/trozet/python-tackerclient.git -b SFC_refactor
+git clone https://github.com/trozet/python-tackerclient.git -b SFC_refactor # Move it local
 pushd python-tackerclient
 python setup.py build
 python setup.py install
 popd
 # setup tacker
 rm -rf tacker
-git clone https://github.com/trozet/tacker.git -b SFC_brahmaputra
+git clone https://github.com/trozet/tacker.git -b SFC_colorado # Move it local
 pushd tacker
 python setup.py build
 python setup.py install
@@ -46,7 +46,7 @@ chmod 775 /etc/init.d/tacker-server
 popd
 # setup puppet-tacker
 rm -rf puppet-tacker
-git clone https://github.com/trozet/puppet-tacker.git -b fix_db_sync
+git clone https://github.com/trozet/puppet-tacker.git -b fix_db_sync # Move it local
 rm -rf /etc/puppet/modules/tacker
 mv -f puppet-tacker/ /etc/puppet/modules/tacker
 # find tacker values

@@ -30,9 +30,9 @@ sudo pip install --upgrade pip GitPython pyyaml netaddr paramiko lxml \
 
 ```bash
 # git clone -b 'stable/colorado' ssh://<user>@gerrit.opnfv.org:29418/fuel
-git clone -b 'stable/colorado' https://git.opnfv.org/fuel
+git clone -b 'stable/colorado' https://git.opnfv.org/fuel && cd fuel
 
-wget http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.1.0.iso
+curl -sLo opnfv-colorado.iso http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.2.0.iso
 
 mkdir fuel/deploy/config/labs/devel-pipeline/telematik-kit
 
@@ -41,7 +41,7 @@ cp -r fuel/deploy/config/labs/devel-pipeline/elx/* \
 
 vim fuel/deploy/config/labs/devel-pipeline/telematik-kit/fuel/config/dha.yaml
 
-mkdir ~/fuel/deploy/images
+mkdir -p ~/fuel/deploy/images
 ```
 
 Add at the bottom of dha.yaml
@@ -97,13 +97,29 @@ cd ~/fuel/ci
 ### No HA SFC
 
 ```bash
-bash ./deploy.sh -b file://${HOME}/fuel/deploy/config/ -l devel-pipeline -p telematik-kit -s no-ha_odl-l2_sfc_heat_ceilometer_scenario.yaml -i file://${HOME}/fuel/opnfv-colorado.1.0.iso
+bash ./deploy.sh -b file://${HOME}/fuel/deploy/config/ -l devel-pipeline -p telematik-kit -s no-ha_odl-l2_sfc_heat_ceilometer_scenario.yaml -i file://${HOME}/fuel/opnfv-colorado.iso
 ```
 
 ### HA SFC
 
 ```bash
-bash ./deploy.sh -b file://${HOME}/fuel/deploy/config/ -l devel-pipeline -p telematik-kit -s ha_odl-l2_sfc_heat_ceilometer_scenario.yaml -i file://${HOME}/fuel/opnfv-colorado.1.0.iso
+bash ./deploy.sh -b file://${HOME}/fuel/deploy/config/ -l devel-pipeline -p telematik-kit -s ha_odl-l2_sfc_heat_ceilometer_scenario.yaml -i file://${HOME}/fuel/opnfv-colorado.iso
+```
+
+## Verification
+
+```
+ssh root@<external-vm> -L 8443:10.20.0.2:8443 # (admin/admin)
+# chrome https://localhost:8443
+ssh root@10.20.0.2 #(pwd: r00tme)
+```
+
+## Controller access
+
+```
+controller_mac=$(virsh domiflist controller1 | grep fuel1 | \
+                  grep -Eo "[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+:[0-9a-f\]+")
+CONTROLLER=$(/usr/sbin/arp -e | grep ${controller_mac} | awk {'print $1'})
 ```
 
 # Debugging
@@ -113,8 +129,18 @@ If running as user `root` -> Error: `permission denied` as `root`
 ```
 # vim /etc/libvirt/qemu.conf
 
-sed -i '' 's/#user = "root"/user = "root"/g' /etc/libvirt/qemu.conf
-sed -i '' 's/#group = "root"/group = "root"/g' /etc/libvirt/qemu.conf
+sed -i 's/#user = "root"/user = "root"/g' /etc/libvirt/qemu.conf
+sed -i 's/#group = "root"/group = "root"/g' /etc/libvirt/qemu.conf
 
 service libvirt-bin restart
+```
+
+## Ansible
+
+```
+cp ansible/inventory.example ansible/inventory
+# Fill in IP address
+ANSIBLE_HOST_KEY_CHECKING=False ansible all -m ping -i ansible/inventory -u root
+# Execute the playbook
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory ansible/site.yml
 ```

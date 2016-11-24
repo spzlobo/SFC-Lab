@@ -1,0 +1,6 @@
+---
+- name: Install fuel
+  hosts: fuel-host
+  remote_user: root
+  roles:
+    - fuel-host
