@@ -63,7 +63,7 @@
 
 - name: Download OPNFV Colorado
   get_url:
-    url: {{ fuel_url }}
+    url: "{{ fuel_url }}"
     dest: /fuel/opnfv-colorado.iso
 
 - name: Creates lab directory
@@ -81,24 +81,21 @@
     dest: /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}/fuel/config/dha.yaml
     force: true
 
-#[WARNING]: Consider using template or lineinfile module rather than running sed
-#TODO Use lineinfile
-#- name: Adjust qemu config add root user
-#  shell: sed -i 's/#user = "root"/user = "root"/g' /etc/libvirt/qemu.conf
+- name: Copy dea-pod-override.yaml
+  copy:
+    src: ./fuel-files/dha.yaml
+    dest: /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}/fuel/config/dea-pod-override.yaml
+    force: true
 
 - name: Adjust qemu config add root user
   lineinfile:
     dest: /etc/libvirt/qemu.conf
     line: "user = \"root\""
 
-#- name: Adjust qemu config add root group
-#  shell: sed -i 's/#group = "root"/group = "root"/g' /etc/libvirt/qemu.conf
-
 - name: Adjust qemu config add root group
   lineinfile:
     dest: /etc/libvirt/qemu.conf
     line: "group = \"root\""
-
 
 - name: Restart libvirt
   service:

@@ -23,13 +23,13 @@ cp ansible/group_vars/all.example ansible/group_vars/all
 Check if you can reach the fuel host:
 
 ```bash
-ANSIBLE_HOST_KEY_CHECKING=False ansible all -m ping -i ansible/inventory -u root
+ansible all -m ping -i ansible/inventory -u root
 ```
 
 Deploy fuel on the host (and all prerequisites):
 
 ```bash
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory ansible/site.yml
+ansible-playbook -i ansible/inventory ansible/site.yml
 ```
 
 ## Verification
@@ -39,3 +39,7 @@ ssh root@<external-vm> -L 8443:10.20.0.2:8443 # (admin/admin)
 # chrome https://localhost:8443
 ssh root@10.20.0.2 #(pwd: r00tme)
 ```
+
+# TODO
+
+- [ ] auto deploy setup
