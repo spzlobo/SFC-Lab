@@ -64,7 +64,7 @@ Use Chrome: <http://localhost:8181/index.html> (admin/admin)
 
 ## SFC/VNF demo
 
-[Readme](docs/Readme.md)
+See [Readme](docs/Readme.md)
 
 # TODO
 

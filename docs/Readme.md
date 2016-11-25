@@ -21,7 +21,7 @@ openstack flavor create custom --ram 1000 --disk 5 --public
 
 ## VNFD
 
-Copy the file [VNFD](../sfc-files/test-vnfd.yaml) to the Host and create a VNFD:
+Copy the file [VNFD](../sfc-files/test-vfnd.yaml) to the Host and create a VNFD:
 
 ```bash
 tacker vnfd-create --vnfd-file ./test-vnfd.yaml
