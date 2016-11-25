@@ -40,6 +40,32 @@ ssh root@<external-vm> -L 8443:10.20.0.2:8443 # (admin/admin)
 ssh root@10.20.0.2 #(pwd: r00tme)
 ```
 
+## Access OpenStack
+
+### Web UI
+
+```bash
+ssh -A -t root@<external-vm> -L 8002:172.16.0.3:80 -L 8001:172.16.0.3:8000 -L 8181:172.16.0.3:8181 -L 6080:172.16.0.3:6080
+# chrome localhost:8002 (admin/admin)
+```
+
+### terminal
+
+```bash
+ssh -A -t  root@<external-vm> ssh -A -t root@10.20.0.2 ssh -A -t root@10.20.0.3 #(pwd: r00tme)
+# 6080:<heat-vm>:6080
+source tackerc
+nova list # return empty list
+```
+
+## Access OpenDaylight
+
+Use Chrome: <http://localhost:8181/index.html> (admin/admin)
+
+## SFC/VNF demo
+
+[Readme](docs/Readme.md)
+
 # TODO
 
-- [ ] auto deploy setup
+- [ ] auto deploy demo
