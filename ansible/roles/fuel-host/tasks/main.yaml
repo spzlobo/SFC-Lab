@@ -83,7 +83,7 @@
 
 - name: Copy dea-pod-override.yaml
   copy:
-    src: ./fuel-files/dha.yaml
+    src: ./fuel-files/dea-pod-override.yaml
     dest: /fuel/deploy/config/labs/devel-pipeline/{{ lab_name }}/fuel/config/dea-pod-override.yaml
     force: true
 
@@ -102,6 +102,7 @@
     name: libvirt-bin
     state: restarted
 
+# -F (only fuel master)
 - name: Execute fuel
   shell: bash ./deploy.sh -b file:///fuel/deploy/config/ -l devel-pipeline -p {{ lab_name }} -s {{ scenario }} -i file:///fuel/opnfv-colorado.iso
   args:

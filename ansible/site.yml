@@ -4,3 +4,9 @@
   remote_user: root
   roles:
     - fuel-host
+
+- name: Install fuel baremetal
+  hosts: fuel-host-baremetal
+  remote_user: root
+  roles:
+    - fuel-host-baremetal

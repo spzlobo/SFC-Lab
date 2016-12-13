@@ -1,15 +1,15 @@
-# Virtual deployment
+# Virtual deployment of OPNFV SFC
 
 Source: <http://artifacts.opnfv.org/sfc/colorado/2.0/docs/installationprocedure/index.html>
 
 ## Prerequisites
 
 - SandyBridge compatible CPU with virtualization support
-- capable to host 5 virtual cores (5 physical ones at least)
-- 8-12 GBytes RAM for virtual hosts (controller, compute), 48GByte at least
-- 128 GiBiBytes room on disk for each virtual host (controller, compute) + 64GiBiBytes for fuel master, 576 GiBiBytes at least
-- Ubuntu Trusty Tahr - 14.04(.5) server operating system with at least ssh service selected at installation.
-- Internet Connection (preferably http proxyless)
+- 5 Cores (physical)
+- 48 GByte RAM
+- 576 GiBiBytes Disk
+- Ubuntu Trusty Tahr - 14.04(.5)
+- Internet Connection
 
 ## Ansible
 
@@ -32,13 +32,16 @@ Deploy fuel on the host (and all prerequisites):
 ansible-playbook -i ansible/inventory ansible/site.yml
 ```
 
+Grab a big coffee :)
+
 ## Verification
 
 ```bash
-ssh root@<external-vm> -L 8443:10.20.0.2:8443 # (admin/admin)
-# chrome https://localhost:8443
+ssh root@<external-vm> -L 8443:10.20.0.2:8443
 ssh root@10.20.0.2 #(pwd: r00tme)
 ```
+
+Use Chrome: localhost:8443 (admin/admin)
 
 ## Access OpenStack
 
@@ -46,15 +49,18 @@ ssh root@10.20.0.2 #(pwd: r00tme)
 
 ```bash
 ssh -A -t root@<external-vm> -L 8002:172.16.0.3:80 -L 8001:172.16.0.3:8000 -L 8181:172.16.0.3:8181 -L 6080:172.16.0.3:6080
-# chrome localhost:8002 (admin/admin)
 ```
+
+Use Chrome: localhost:8002 (admin/admin)
 
 ### terminal
 
+-> TODO set up pub key (how) ssh-copy-id -i ~/.ssh/id_rsa.pub root@external-vm>
+
 ```bash
-ssh -A -t  root@<external-vm> ssh -A -t root@10.20.0.2 ssh -A -t root@10.20.0.3 #(pwd: r00tme)
-# 6080:<heat-vm>:6080
+ssh -A -t root@<external-vm> ssh -A -t root@10.20.0.2 ssh -A -t root@10.20.0.3 #(pwd: r00tme)
 source tackerc
+openstack service list
 nova list # return empty list
 ```
 

@@ -1,0 +1,31 @@
+dha-pod-config-metadata:
+  title: Deployment Hardware Adapter (DHA) for fuel development pipeline - KIT Telematik Lab
+  version: 0.0.1
+  created: Nov 25 2016
+  comment: Fuel 9 version
+
+# Adapter to use for this definition
+adapter: ipmi
+
+nodes:
+- id: 1
+  pxeMac: {{ pxeMac1 }}
+  ipmiIp: {{ ipmiIP1 }}
+  ipmiUser: root
+  ipmiPass: changeme
+- id: 2
+  pxeMac: {{ pxeMac2 }}
+  ipmiIp: {{ ipmiIP2 }}
+  ipmiUser: root
+  ipmiPass: changeme
+- id: 3
+  pxeMac: {{ pxeMac3 }}
+  ipmiIp: {{ ipmiIP3 }}
+  ipmiUser: root
+  ipmiPass: changeme
+- id: 4
+  libvirtName: fuel-master
+  libvirtTemplate: templates/virtual_environment/vms/fuel.xml
+  isFuel: yes
+  username: root
+  password: r00tme
