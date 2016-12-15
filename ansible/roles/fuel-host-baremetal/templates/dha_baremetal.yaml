@@ -8,19 +8,20 @@ dha-pod-config-metadata:
 adapter: ipmi
 
 nodes:
+ipmi_baremetal:
 - id: 1
-  pxeMac: {{ pxeMac1 }}
-  ipmiIp: {{ ipmiIP1 }}
+  pxeMac: 00:1e:68:9a:c9:fe
+  ipmiIp: 192.168.106.112
   ipmiUser: root
   ipmiPass: changeme
 - id: 2
-  pxeMac: {{ pxeMac2 }}
-  ipmiIp: {{ ipmiIP2 }}
+  pxeMac: 00:1e:68:9a:c6:de
+  ipmiIp: 192.168.106.113
   ipmiUser: root
   ipmiPass: changeme
 - id: 3
-  pxeMac: {{ pxeMac3 }}
-  ipmiIp: {{ ipmiIP3 }}
+  pxeMac: 00:1e:68:9a:c9:56
+  ipmiIp:: 192.168.106.114
   ipmiUser: root
   ipmiPass: changeme
 - id: 4
@@ -29,3 +30,6 @@ nodes:
   isFuel: yes
   username: root
   password: r00tme
+
+disks:
+  fuel: 50G

@@ -43,10 +43,10 @@ iface enp4s0f1 inet static
     address 172.16.0.1
     netmask 255.255.255.0
 
-# Storage Network 192.168.12.0/24 (VID 102)
+# Storage Network 192.168.1.0/24 (VID 102)
 auto enp4s0f1.102
 iface enp4s0f1.102 inet static
-    address 192.168.12.1
+    address 192.168.1.1
     netmask 255.255.255.0
     vlan-raw-device enp4s0f1
 
@@ -57,10 +57,10 @@ iface enp4s0f1.101 inet static
     netmask 255.255.255.0
     vlan-raw-device enp4s0f1
 
-# Private Network 192.168.11.0/24 (VID 103)
+# Private Network 192.168.2.0/24 (VID 103)
 auto enp4s0f1.103
 iface enp4s0f1.103 inet static
-    address 192.168.11.1
+    address 192.168.2.1
     netmask 255.255.255.0
     vlan-raw-device enp4s0f1
 
@@ -71,8 +71,6 @@ iface enp11s0f1 inet static
     netmask 255.255.255.0
     mtu 1500
 EOF
-
-#TODO VLANS
 
 sudo modprobe 8021q
 sudo modprobe br_netfilter
@@ -86,17 +84,16 @@ route -n
 
 sudo iptables -F
 
-# Allow Jump Host as gateway
+# Allow Jump Host as gateway - validate these
 sudo iptables -t nat -A POSTROUTING -o enp4s0f0 -j MASQUERADE
 sudo iptables -A FORWARD -i enp11s0f0 -o enp4s0f0 -j ACCEPT
 sudo iptables -A FORWARD -i enp4s0f0 -o enp11s0f0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+
 sudo iptables -A FORWARD -i br-enp11s0f0 -o enp4s0f0 -j ACCEPT
 sudo iptables -A FORWARD -i enp4s0f0 -o br-enp11s0f0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
 sudo iptables -A FORWARD -i enp4s0f1 -o enp4s0f0 -j ACCEPT
 sudo iptables -A FORWARD -i enp4s0f0 -o enp4s0f1 -m state --state RELATED,ESTABLISHED -j ACCEPT
-
-enp4s0f1
 
 sudo iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
 
@@ -119,9 +116,6 @@ sudo virt-install -n opnfv-fuel -r 8192 --vcpus=4 --cpuset=0-3 -c ~/opnfv.iso --
 
 # get VNC port
 sudo virsh vncdisplay opnfv-fuel
-# cd /opt/opnfv/
-# fuel plugins --install fuel-plugin-ovs-*.noarch.rpm
-# fuel plugins --install opendaylight-*.noarch.rpm
 ```
 
 ### Configure Fuel
@@ -134,16 +128,6 @@ sudo virsh vncdisplay opnfv-fuel
 - use default PXE and NTP settings
 - External DNS `8.8.8.8`
 - Save & Quit
-
-### Clean Up
-
-If you want to delete the fuel VM execute the following steps
-
-```bash
-sudo virsh destroy opnfv-fuel
-sudo virsh undefine opnfv-fuel
-sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
-```
 
 ### Access Fuel VM
 
@@ -159,7 +143,7 @@ Allow Traffic forwarding
 ```bash
 sudo sysctl -w net.ipv4.ip_forward=1
 
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
 
 #### Install Fuel Plugins
@@ -173,9 +157,9 @@ fuel plugins
 All OPNFV related fuel plugins are on `/opt/opnfv/` for the scenario `no-ha_odl-l2_sfc_heat_ceilometer_scenario.yaml` you need to install the following plugins:
 
 ```bash
-fuel plugins --install /opt/opnfv/opendaylight-0.9-0.9.0-1.noarch.rpm
-fuel plugins --install /opt/opnfv/fuel-plugin-ovs-0.9-0.9.0-1.noarch.rpm
-fuel plugins --install /opt/opnfv/tacker-0.2-0.2.0-1.noarch.rpm
+fuel plugins --install /opt/opnfv/opendaylight-*.noarch.rpm
+fuel plugins --install /opt/opnfv/fuel-plugin-ovs-*.noarch.rpm
+fuel plugins --install /opt/opnfv/tacker-*1.noarch.rpm
 ```
 
 Validate all Plugins:
@@ -202,6 +186,8 @@ sudo apt-get -qq -y install ipmitool openipmi freeipmi-tools
 export NODES=(192.168.106.112 192.168.106.113 192.168.106.114)
 for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power off; done
 for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power on; done
+sleep 10
+for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power status; done
 ```
 
 It takes a little bit to boot all nodes, then go to `equipment` and you should see the newly booted machines.
@@ -226,7 +212,7 @@ User: `admin` and password: `admin`
 
 - Name: `OPNFV-Test`
 - Compute: `QEMU-KVM`
-- Network: Neutron with VLAN
+- Network: `OpenDayLight with tunneling segmentation`
 - Storage: `Ceph`
 
 ##### Activate the fuel plugins:
@@ -235,6 +221,8 @@ User: `admin` and password: `admin`
 - Settings -> Storage -> Ceph object replication factor: 2 (not recommend but I only had 2 compute nodes)
 - Settings -> Other -> OVS (all options)
 - Settings -> Other -> ODL SFC - NetVirt
+- Settings -> Compute -> KVM
+- Settings -> Provision -> Inital Packages -> Add `systemd-shim`
 
 ##### Now we have to add our Nodes:
 
@@ -257,6 +245,8 @@ Go to Nodes -> Select all Nodes -> Configure interfaces
 
 Click an apply and wait.
 
+##### Setup Network
+
 ##### Setup Nodes
 
 We need to setup the network to make the Network checks succeed
@@ -264,17 +254,16 @@ We need to setup the network to make the Network checks succeed
 ```bash
 export LAST_BYTE=$(ifconfig enp4s0f0 | grep 'inet addr' | cut -d: -f2 | awk '{print $1}' | awk -F. '{print $4}')
 
-sudo tee -a /etc/network/interfaces <<-'EOF'
-# Public Network 172.16.0.0/24 (untagged)
+echo "# Public Network 172.16.0.0/24 (untagged)
 auto enp11s0f1
 iface enp11s0f1 inet static
     address 172.16.0.${LAST_BYTE}
     netmask 255.255.255.0
 
-# Storage Network 192.168.12.0/24 (VID 102)
+# Storage Network 192.168.1.0/24 (VID 102)
 auto enp11s0f1.102
 iface enp11s0f1.102 inet static
-    address 192.168.12.${LAST_BYTE}
+    address 192.168.1.${LAST_BYTE}
     netmask 255.255.255.0
     vlan-raw-device enp11s0f1
 
@@ -285,13 +274,16 @@ iface enp11s0f1.101 inet static
     netmask 255.255.255.0
     vlan-raw-device enp11s0f1
 
-# Private Network 192.168.11.0/24 (VID 103)
+# Private Network 192.168.2.0/24 (VID 103)
 auto enp11s0f1.103
 iface enp11s0f1.103 inet static
-    address 192.168.11.${LAST_BYTE}
+    address 192.168.2.${LAST_BYTE}
     netmask 255.255.255.0
     vlan-raw-device enp11s0f1
-EOF
+
+# interfaces(5) file used by ifup(8) and ifdown(8)
+# Include files from /etc/network/interfaces.d:
+source-directory /etc/network/interfaces.d" > /etc/network/interfaces
 
 ifdown enp11s0f1; ifup enp11s0f1
 ifdown enp11s0f1.102; ifup enp11s0f1.102
@@ -299,6 +291,87 @@ ifdown enp11s0f1.101; ifup enp11s0f1.101
 ifdown enp11s0f1.103; ifup enp11s0f1.103
 
 cat /proc/net/vlan/config
+```
+
+##### Local Mirror
+
+<http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/upgrade/upgrade-local-repo.html>
+
+TODO this could give some speed up but only nice to have
+
+##### Fix Fuel Ubuntu
+
+This step is needed as long this PR isn't merged: <https://review.openstack.org/#/c/409112> see here:
+
+- <https://bugs.launchpad.net/fuel/+bug/1648732>
+- <https://bugs.launchpad.net/fuel/+bug/1648741>
+- <https://bugs.launchpad.net/fuel/+bug/1645304>
+
+```bash
+sed -i '/telnet/i \
+              systemd-shim' /lib/python2.7/site-packages/nailgun/fixtures/openstack.yaml
+```
+
+or if you run into this error execute the following steps from the fuel host:
+
+```bash
+export ID=2
+fuel settings --env-id ${ID} -d
+sed -i '/telnet/i \        systemd-shim\n' /root/settings_${ID}.yaml
+fuel settings --env-id ${ID} -u
+
+# Validate everything
+rm -f /root/settings_${ID}.yaml
+fuel settings --env-id ${ID} -d
+grep "systemd-shim" /root/settings_${ID}.yaml
+```
+
+or directly install the packages:
+
+```bash
+export FUEL_NODES=(10.20.0.3 10.20.0.4 10.20.0.5)
+for i in "${FUEL_NODES[@]}"; do ssh $i "apt-get -qq install -y systemd-shim"; done
+```
+
+After this trigger the Deployment again.
+
+TODO check if step is needed when fuel is provisioned or only before the first deployment
+
+`ovs-vsctl br-exists br-int returns 2` -> `ovs-vsctl add-br br-int`
+
+##### Deployment
+
+##### Post Deployment
+
+If you want to be able to login into the OPNFV Nodes from your Jump Host (not the fuel VM) execute the following steps:
+
+```bash
+scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
+```
+
+Now ssh into the controller node and execute the [functest](https://wiki.opnfv.org/display/sfc/Functest+SFC-ODL+-+Test+1):
+
+```bash
+. tackerc
+
+docker pull opnfv/functest
+docker run --privileged=true -id -e INSTALLER_TYPE=fuel -e INSTALLER_IP=10.20.0.2 -e DEPLOY_SCENARIO=os-odl_l2-sfc-ha -e CI_DEBUG=true --name sfc opnfv/functest
+
+docker exec -ti sfc bash
+functest env prepare
+. $creds
+
+functest testcase run odl-sfc
+```
+
+### Clean Up
+
+If you want to delete the fuel VM execute the following steps
+
+```bash
+sudo virsh destroy opnfv-fuel
+sudo virsh undefine opnfv-fuel
+sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
 ```
 
 # Debugging

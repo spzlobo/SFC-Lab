@@ -70,7 +70,7 @@ Use Chrome: <http://localhost:8181/index.html> (admin/admin)
 
 ## SFC/VNF demo
 
-See [Readme](docs/Readme.md)
+See [Readme](docs/sfc_demo.md)
 
 # TODO
 

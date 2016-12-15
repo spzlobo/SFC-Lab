@@ -11,7 +11,7 @@ vdus:
   vdu1:
     id: vdu1
     vm_image: sfc
-    instance_type: custom
+    instance_type: sfc-demo
     service_type: firewall
 
     network_interfaces:

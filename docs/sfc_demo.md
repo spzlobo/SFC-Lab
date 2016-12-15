@@ -16,25 +16,31 @@ neutron subnet-create net_mgmt 11.0.0.0/24 --name net_mgmt_subnet
 ### Security groups
 
 ```bash
-SECURITY_GROUP_NAME=example-sg
-openstack security group create ${SECURITY_GROUP_NAME} --description "Example Security group"
-openstack security group list
+SECURITY_GROUP_NAME=sfc-demo
+neutron security-group-create ${SECURITY_GROUP_NAME} --description "Example Security group"
+neutron security-group-list
 
 # Allow ssh
-openstack security group rule create ${SECURITY_GROUP_NAME} --protocol tcp --dst-port 22:22 --remote-ip 0.0.0.0/0
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --dst-port 22:22 --remote-ip 0.0.0.0/0
 # Allow Ping
-openstack security group rule create ${SECURITY_GROUP_NAME} --protocol icmp --dst-port -1:-1 --remote-ip 0.0.0.0/0
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol icmp --remote-ip 0.0.0.0/0
 
 #--ingress | --egress
-openstack security group rule list ${SECURITY_GROUP_NAME}
+neutron security-group-rule-list
 ```
 
 ## Glance SFC Image
 
 ```bash
 curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2 # Need create own
-openstack image create sfc --disk-format qcow2 --public --file /tmp/sf_nsh_colorado.qcow2
-openstack flavor create custom --ram 1000 --disk 5 --public
+
+# Upload the image
+glance image-create --visibility=public --name=sfc --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
+glance image-list
+
+# Create a new flavor
+nova flavor-create --is-public=true sfc-demo auto 1000 5 1
+nova flavor-list
 ```
 
 ## VNFD
@@ -138,6 +144,6 @@ curl --local-port 2000 -I <HTTP server IP>
 
 Verify that the packets hit the VNF and the client receive a 200 OK as response
 
-http://ehaselwanter.com/en/blog/2014/10/15/deploying-openstack-with-mirantis-fuel-5-1/
+<http://ehaselwanter.com/en/blog/2014/10/15/deploying-openstack-with-mirantis-fuel-5-1/>
 
-http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/install/install_set_up_fuel.html#install-set-up-fuel
+<http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/install/install_set_up_fuel.html#install-set-up-fuel>
