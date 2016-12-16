@@ -349,50 +349,13 @@ If you want to be able to login into the OPNFV Nodes from your Jump Host (not th
 scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
 ```
 
-Now ssh into the controller node and execute the [functest](https://wiki.opnfv.org/display/sfc/Functest+SFC-ODL+-+Test+1):
+##### SFC testing
 
-```bash
-. tackerc
+[SFC testing](./sfc_testing.md)
 
-# Set tag to running version e.q. colorado.3.0
-TAG=colorado.3.0
-docker run --privileged=true \
-           --net=host \
-           -ti \
-           -e INSTALLER_TYPE=fuel \
-           -e INSTALLER_IP=10.20.0.2 \
-           -e DEPLOY_SCENARIO=os-odl_l2-sfc-noha \
-           -e CI_DEBUG=true \
-           --name sfc opnfv/functest:${TAG:-latest}/bin/bash
+##### SFC/VNF demo
 
-
-functest env prepare
-. $creds
-
-functest testcase run odl-sfc
-
-Error:
-
-bash: :/root/tackerc: No such file or directory
-usage: scp [-12346BCpqrv] [-c cipher] [-F ssh_config] [-i identity_file]
-           [-l limit] [-o ssh_option] [-P port] [-S program]
-           [[user@]host1:]file1 ... [[user@]host2:]file2
-2016-12-16 11:53:52,473 - ODL_SFC - INFO - The presetup of the server worked
-2016-12-16 11:53:52,695 - ODL_SFC - INFO - Executing ssh to collect the compute IPs
-/home/opnfv/repos/functest/testcases/features/sfc/compute_presetup_CI.bash: line 11: pushd: write error: Broken pipe
-/home/opnfv/repos/functest/testcases/features/sfc/compute_presetup_CI.bash: line 16: echo: write error: Broken pipe
-
-#  e.q. colorado.3.0
-# TAG=${TAG:-latest}
-# https://wiki.opnfv.org/display/sfc/Functest+SFC-ODL+-+Test+1 -> add top docker :tag e.q. colorado.3.0
-
-# -> still error
-
-/home/opnfv/repos/functest/testcases/features/sfc/compute_presetup_CI.bash: line 13: pushd: write error: Broken pipe
-
-# Clean Up
-docker rm -f sfc
-```
+See [SFC demo](docs/sfc_demo.md)
 
 ### Clean Up
 
