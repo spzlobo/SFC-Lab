@@ -349,6 +349,17 @@ If you want to be able to login into the OPNFV Nodes from your Jump Host (not th
 scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
 ```
 
+##### Tacker UI
+
+On the Controller Node:
+
+```bash
+git clone https://github.com/openstack/tacker-horizon.git
+cd tacker-horizon/ && sudo python setup.py install
+cp openstack_dashboard_extensions/* /usr/share/openstack-dashboard/openstack_dashboard/enabled/
+sudo service apache2 restart
+```
+
 ##### SFC testing
 
 [SFC testing](./sfc_testing.md)

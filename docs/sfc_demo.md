@@ -37,7 +37,8 @@ nova flavor-list
 Create at first a Neutron network
 
 ```bash
-neutron net-create sfc_demo_net --provider:network_type=vxlan --provider:segmentation_id 1005
+neutron net-create sfc_demo_net
+# --dns-nameservers list=true 8.8.8.8
 neutron subnet-create sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
 neutron router-create sfc_router
 neutron router-interface-add sfc_router subnet=sfc_demo_net_subnet
@@ -47,15 +48,16 @@ neutron router-gateway-set sfc_router admin_floating_net
 ### Security groups
 
 ```bash
-SECURITY_GROUP_NAME=sfc_demo_net
+SECURITY_GROUP_NAME=sfc_demo_sg
 
 neutron security-group-create ${SECURITY_GROUP_NAME} --description "Example SFC Security group"
 neutron security-group-list
 
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22 --remote-ip 0.0.0.0/0
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 67 --port-range-max 68 --remote-ip 0.0.0.0/0
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80 --remote-ip 0.0.0.0/0
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol icmp --remote-ip 0.0.0.0/0
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 67 --port-range-max 68
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol icmp
 
 #--ingress | --egress
 neutron security-group-rule-list
@@ -70,29 +72,64 @@ curl -sLo /tmp/ubuntu_xenial.img http://cloud-images.ubuntu.com/xenial/current/x
 glance image-create --visibility=public --name=ubuntu-xenial --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img --progress
 ```
 
-### Create instances
-
-```
-create 2 VMs + floating ips
---> show web server works
-over ssh
-```
-
---> os_utils.add_secgroup_to_instance(nova_client, instance.id, sg_id) --> Add Instance to security group
+### Create SSH keys
 
 ```bash
-nova boot --flavor m1.small --image cirros --nic net-name=net_mgmt http_client
-nova boot --flavor m1.small --image sfc --nic net-name=net_mgmt http_server
+# This step is optional
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
+nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
+nova keypair-list
+```
+
+### Create instances
+
+```bash
+nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups ${SECURITY_GROUP_NAME} --nic net-name=sfc_demo_net client
+nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups ${SECURITY_GROUP_NAME} --nic net-name=sfc_demo_net server
 nova list
 ```
 
-#### HTTP server
-
-Stop iptables and start a simple Web server (same login as for the VNF)
+### Create Floating IP Client
 
 ```bash
-systemctl stop iptables
-python -m SimpleHTTPServer 80
+# Bad output format in OpenStack... 'Associated floating IP 1adc93fe-382c-4777-94b4-400604dd5ccf'
+CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep client | awk {'print $2'}))
+neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
+CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP_ID)
+# test SSH
+ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello World'
+```
+
+### Create Floating IP Server
+
+```bash
+SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+SERVER_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep server | awk {'print $2'}))
+neutron floatingip-associate $SERVER_FIP_ID $SERVER_PORT
+SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP_ID)
+# test SSH
+ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello World'
+```
+
+### HTTP server
+
+Stop iptables and start a simple Web server
+
+```bash
+ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP
+# sudo systemctl stop iptables
+echo "Hello World!" > hello.txt
+sudo sh -c "while true; do { echo -e 'HTTP/1.1 200 OK\r\n'; cat hello.txt; } | nc -l 80; done " &
+# Test it
+curl http://localhost
+```
+
+### Client Test
+
+```bash
+ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
+curl http://<server-internal>
 ```
 
 ## VNFD
@@ -112,11 +149,10 @@ tacker vnf-create --name testVNF1 --vnfd-name test-vnfd1
 tacker vnf-create --name testVNF2 --vnfd-name test-vnfd2
 # Check the status
 heat stack-list
-# List all VNFs
 tacker vnf-list
 ```
 
-Now go to login into the horizon UI (e.g. localhost:8002) with the `tacker` user. Go to Compute->Instances and select the VNF instance select Console and login as `root` `opnfv` and configure the VNF (this should be automated, like cloud-init or something else):
+### Create Floating IPs
 
 ```bash
 service iptables stop
