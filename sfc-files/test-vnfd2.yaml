@@ -1,22 +1,22 @@
-template_name: test-vnfd
-description: firewall-example
+template_name: test-vnfd2
+description: firewall2-example
 
 service_properties:
-  Id: firewall-vnfd
+  Id: firewall2-vnfd
   vendor: tacker
   version: 1
   type:
-      - firewall
+      - firewall2
 vdus:
   vdu1:
     id: vdu1
-    vm_image: sfc
-    instance_type: sfc-demo
-    service_type: firewall
+    vm_image: sfc_demo_image
+    instance_type: sfc_demo_flavor
+    service_type: firewall2
 
     network_interfaces:
       management:
-        network: net_mgmt
+        network: sfc_demo_net
         management: true
 
     placement_policy:
