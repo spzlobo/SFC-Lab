@@ -5,6 +5,7 @@
 This step allows us to ssh into the new created VMs (execute them on the Controller Node):
 
 ```bash
+apt-get install -y sshpass
 iptables -P INPUT ACCEPT
 iptables -t nat -P INPUT ACCEPT
 iptables -A INPUT -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
@@ -37,12 +38,15 @@ nova flavor-list
 Create at first a Neutron network
 
 ```bash
-neutron net-create sfc_demo_net
-# --dns-nameservers list=true 8.8.8.8
-neutron subnet-create sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
-neutron router-create sfc_router
-neutron router-interface-add sfc_router subnet=sfc_demo_net_subnet
-neutron router-gateway-set sfc_router admin_floating_net
+neutron net-create sfc_demo_net --provider:network_type=vxlan --provider:segmentation_id 1005
+neutron subnet-create --dns-nameserver 8.8.8.8 sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
+neutron router-create sfc_demo_router
+#TODO Problem here
+neutron router-interface-add sfc_demo_router subnet=sfc_demo_net_subnet
+neutron router-gateway-set sfc_demo_router admin_floating_net
+
+neutron router-show sfc_demo_router
+neutron router-port-list sfc_demo_router
 ```
 
 ### Security groups
@@ -53,13 +57,14 @@ SECURITY_GROUP_NAME=sfc_demo_sg
 neutron security-group-create ${SECURITY_GROUP_NAME} --description "Example SFC Security group"
 neutron security-group-list
 
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 67 --port-range-max 68
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
+neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
 neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol icmp
 
-#--ingress | --egress
 neutron security-group-rule-list
 ```
 
@@ -118,18 +123,17 @@ Stop iptables and start a simple Web server
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP
-# sudo systemctl stop iptables
-echo "Hello World!" > hello.txt
-sudo sh -c "while true; do { echo -e 'HTTP/1.1 200 OK\r\n'; cat hello.txt; } | nc -l 80; done " &
+sudo ufw disable
+sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80; done" &
 # Test it
-curl http://localhost
+curl --connect-timeout 5 http://localhost
 ```
 
 ### Client Test
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
-curl http://<server-internal>
+while true; do curl --connect-timeout 2 http://<server-internal>; sleep2; done
 ```
 
 ## VNFD
@@ -152,74 +156,68 @@ heat stack-list
 tacker vnf-list
 ```
 
-### Create Floating IPs
+### Start VNFs
+
+To be able to login into the VNFs we need to create a floating IP.
 
 ```bash
-service iptables stop
-python ~/vxlan_tool/vxlan_tool.py -i eth0 -d forward -v on
+VNF1_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+# Fetch the ID of the VNF 1
+nova list
+VNF1_ID=""
+
+VNF1_ID=efd76fc5-26c4-4799-ade2-1c2730eca140
+VNF1_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF1_ID} | awk {'print $2'}))
+neutron floatingip-associate $VNF1_FIP_ID $VNF1_PORT
+VNF1_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF1_FIP_ID)
+# test SSH (at this time we still have the OPNFV image)
+sshpass -p opnfv ssh root@$VNF1_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > /root/vxlan.log  2>&1 &'
+```
+
+The same for VNF2:
+
+```bash
+VNF2_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+# Fetch the ID of the VNF 1
+nova list
+VNF2_ID=""
+VNF2_ID=5ec108a7-c709-4d1f-b9ad-2429a7a790ab
+VNF2_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF2_ID} | awk {'print $2'}))
+neutron floatingip-associate $VNF2_FIP_ID $VNF2_PORT
+VNF2_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF2_FIP_ID)
+sshpass -p opnfv ssh root@$VNF2_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 22 > /root/vxlan.log  2>&1 &'
 ```
 
 ## SFC
 
-```bash
-##create service chain
-#tacker sfc-create --name red --chain testVNF1
-#tacker sfc-create --name blue --chain testVNF2
+### Create SFC
 
+```bash
+#create service chain
+tacker sfc-create --name red --chain testVNF1
+tacker sfc-create --name blue --chain testVNF2
+tacker sfc-list
+```
+
+### Create SFC classifiers
+
+```bash
 #create classifier
-#tacker sfc-classifier-create --name red_http --chain red --match source_port=0,dest_port=80,protocol=6
-#tacker sfc-classifier-create --name red_ssh --chain red --match source_port=0,dest_port=22,protocol=6
-
-#tacker sfc-list
-#tacker sfc-classifier-list
-
-tacker sfc-create --name mychain --chain testVNF1
-tacker sfc-show mychain # Should be 'active'
+tacker sfc-classifier-create --name red_http --chain red --match source_port=0,dest_port=80,protocol=6
+tacker sfc-classifier-create --name red_ssh --chain red --match source_port=0,dest_port=22,protocol=6
+tacker sfc-classifier-list
 ```
 
-### Validate OVS flows
+## Recreate SFC classifiers
 
 ```bash
-sudo ovs-ofctl -O OpenFlow13 dump-flows br-int
+tacker sfc-classifier-delete red_http
+tacker sfc-classifier-delete red_ssh
+
+tacker sfc-classifier-create --name blue_http --chain blue --match source_port=0,dest_port=80,protocol=6
+tacker sfc-classifier-create --name blue_ssh  --chain blue --match source_port=0,dest_port=22,protocol=6
+tacker sfc-classifier-list
 ```
-
-### SFC classifier
-
-```bash
-tacker sfc-classifier-create --name myclass --chain mychain --match source_port=2000,dest_port=80,protocol=6
-tacker sfc-classifier-show myclass
-
-# Find the according compute machine
-sudo ovs-ofctl dump-flows br-int -O openflow13 | grep tp_dst=80
-```
-
-## VXLAN (Workaround)
-
-Validate this step!
-
-Execute this step on the Controller and all Compute nodes:
-
-```bash
-sudo ifconfig br-int up
-sudo ip route add 123.123.123.0/24 dev br-int
-
-ssh root@10.20.0.5 "ifconfig br-int up && ip route add 123.123.123.0/24 dev br-int"
-ssh root@10.20.0.6 "ifconfig br-int up && ip route add 123.123.123.0/24 dev br-int"
-```
-
-## Test SFC!
-
-Go to the Compute->Instances view and note the ip of the HTTTP server/client. Login in into the HTTP client and Curl the server:
-
-```bash
-curl --local-port 2000 -I <HTTP server IP>
-```
-
-Verify that the packets hit the VNF and the client receive a 200 OK as response
-
-<http://ehaselwanter.com/en/blog/2014/10/15/deploying-openstack-with-mirantis-fuel-5-1/>
-
-<http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/install/install_set_up_fuel.html#install-set-up-fuel>
 
 # Clean Up
 
@@ -233,8 +231,14 @@ tacker device-template-delete test-vnfd2
 
 nova flavor-delete sfc_demo_flavor
 glance image-delete $(glance image-list | grep sfc_demo_image | awk '{print $2}')
+
+nova delete client server
+
+neutron router-gateway-clear sfc_demo_router
+neutron router-interface-delete sfc_demo_router subnet=sfc_demo_net_subnet
+neutron router-delete sfc_demo_router
+neutron net-delete sfc_demo_net
+
+tacker sfc-classifier-delete blue_http
+tacker sfc-classifier-delete blue_ssh
 ```
-
-## TODO
-
-- [ ] Own SF image

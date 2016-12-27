@@ -252,6 +252,9 @@ Click an apply and wait.
 We need to setup the network to make the Network checks succeed
 
 ```bash
+sudo modprobe 8021q
+sudo sh -c 'echo -e "8021q" >> /etc/modules'
+
 export LAST_BYTE=$(ifconfig enp4s0f0 | grep 'inet addr' | cut -d: -f2 | awk '{print $1}' | awk -F. '{print $4}')
 
 echo "# Public Network 172.16.0.0/24 (untagged)
