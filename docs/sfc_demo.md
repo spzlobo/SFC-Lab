@@ -41,7 +41,6 @@ Create at first a Neutron network
 neutron net-create sfc_demo_net --provider:network_type=vxlan --provider:segmentation_id 1005
 neutron subnet-create --dns-nameserver 8.8.8.8 sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
 neutron router-create sfc_demo_router
-#TODO Problem here
 neutron router-interface-add sfc_demo_router subnet=sfc_demo_net_subnet
 neutron router-gateway-set sfc_demo_router admin_floating_net
 
@@ -241,4 +240,8 @@ neutron net-delete sfc_demo_net
 
 tacker sfc-classifier-delete blue_http
 tacker sfc-classifier-delete blue_ssh
+
+nova delete client server
 ```
+
+There seems to be a little problem with cleaning up the classifiers, when you delete the classifiers with `tacker sfc-classifier-delete <name>` the ovs rules stay (until they get overwritten).

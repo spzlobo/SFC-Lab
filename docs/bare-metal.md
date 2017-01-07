@@ -363,6 +363,14 @@ cp openstack_dashboard_extensions/* /usr/share/openstack-dashboard/openstack_das
 sudo service apache2 restart
 ```
 
+##### OpenDaylight SFC UI
+
+```bash
+/opt/opendaylight/bin/client
+feature:install odl-ovsdb-sfc-ui
+service opendaylight restart
+```
+
 ##### SFC testing
 
 [SFC testing](./sfc_testing.md)
