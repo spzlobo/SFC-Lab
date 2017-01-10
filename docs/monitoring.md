@@ -112,6 +112,7 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable node_exporter && sudo systemctl start node_exporter
+sudo iptables -A INPUT -s 10.20.0.0/24 -p tcp -m multiport --ports 9100 -m comment --comment "020 prometheus from 10.20.0.0/24" -j ACCEPT
 ```
 
 ### Ubuntu 14.04
@@ -128,4 +129,5 @@ end script
 EOF
 
 sudo service node_exporter start
+sudo iptables -A INPUT -s 10.20.0.0/24 -p tcp -m multiport --ports 9100 -m comment --comment "020 prometheus from 10.20.0.0/24" -j ACCEPT
 ```

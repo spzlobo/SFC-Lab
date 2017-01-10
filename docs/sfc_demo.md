@@ -123,7 +123,7 @@ Stop iptables and start a simple Web server
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP
 sudo ufw disable
-sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80; done" &
+sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80 > /dev/null; done" &
 # Test it
 curl --connect-timeout 5 http://localhost
 ```
@@ -237,9 +237,13 @@ neutron router-gateway-clear sfc_demo_router
 neutron router-interface-delete sfc_demo_router subnet=sfc_demo_net_subnet
 neutron router-delete sfc_demo_router
 neutron net-delete sfc_demo_net
+neutron security-group-delete sfc_demo_sg
 
 tacker sfc-classifier-delete blue_http
 tacker sfc-classifier-delete blue_ssh
+
+tacker sfc-delete blue
+tacker sfc-delete red
 
 nova delete client server
 ```

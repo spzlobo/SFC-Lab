@@ -1,9 +1,5 @@
 # Bare-metal Installation with Fuel
 
-## TODO
-
-- [ ] write ansible file
-
 ## Jumphost
 
 OS: Ubuntu 16.04
@@ -354,6 +350,8 @@ scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
 
 ##### Tacker UI
 
+<span style="color:red">The Tacker UI is not compatible with the OPNFV Tacker version</span>
+
 On the Controller Node:
 
 ```bash
@@ -364,6 +362,8 @@ sudo service apache2 restart
 ```
 
 ##### OpenDaylight SFC UI
+
+On the Controller Node:
 
 ```bash
 /opt/opendaylight/bin/client
@@ -397,3 +397,7 @@ sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
 sudo apt install dhcpdump
 sudo dhcpdump -i enp11s0f0
 ```
+
+# TODO
+
+- [ ] write ansible file
