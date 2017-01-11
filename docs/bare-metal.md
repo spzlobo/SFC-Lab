@@ -393,15 +393,6 @@ sudo virsh undefine opnfv-fuel
 sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
 ```
 
-## Debugging
-
-### Check DHCP
-
-```bash
-sudo apt install dhcpdump
-sudo dhcpdump -i enp11s0f0
-```
-
 ## TODO
 
 - [ ] write Ansible playbooks

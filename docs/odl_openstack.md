@@ -4,6 +4,12 @@
 
 Original Docs: <http://docs.opendaylight.org/en/stable-boron/user-guide/ovsdb-netvirt.html>
 
-### Security groups
+## OVS Tables
 
-The current rules are applied on the basis of the following attributes: ingress/egress, protocol, port range, and prefix. In the pipeline, table 40 is used for egress ACL and table 90 for ingress ACL rules.
+Table ID | Use
+-------- | --------------------------
+20       | ARP Resolve (L2population)
+30       | NAT (floating IP)
+40       | security groups egress
+90       | security groups ingress
+150      | Service Function Chaining

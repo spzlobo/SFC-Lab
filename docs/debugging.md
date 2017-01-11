@@ -65,3 +65,37 @@ Get all flows for the bridge `br-int`
 ```bash
 ovs-ofctl -O OpenFlow13 dump-flows br-int
 ```
+
+# OpenStack
+
+## Check DHCP
+
+```bash
+sudo apt install dhcpdump
+sudo dhcpdump -i enp11s0f0
+```
+
+## Error Scheduling
+
+If Hugepages not enables do the follwoing (<https://wiki.debian.org/Hugepages>)
+
+```bash
+# for 10GB with 2048 KB Page Size -> 10*1024*1024/2048
+echo "5120" >> /etc/sysctl.conf
+echo "vm.hugetlb_shm_group = $(cut -d: -f3 < <(getent group libvirt))" >> /etc/sysctl.conf
+echo "KVM_HUGEPAGES=1" > /etc/default/qemu-kvm
+reboot
+
+grep Huge /proc/meminfo
+# Lock max 10Gb
+echo -e "soft memlock 10485760
+hard memlock 10485760" >> /etc/security/limits.conf
+
+sudo service libvirtd restart
+```
+
+or fix this by removeing the constraint:
+
+```bash
+nova flavor-key sfc_demo_flavor unset hw:mem_page_size
+```

@@ -51,18 +51,16 @@ neutron router-port-list sfc_demo_router
 ### Security groups
 
 ```bash
-SECURITY_GROUP_NAME=sfc_demo_sg
-
-neutron security-group-create ${SECURITY_GROUP_NAME} --description "Example SFC Security group"
+neutron security-group-create sfc_demo_sg --description "Example SFC Security group"
 neutron security-group-list
 
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
-neutron security-group-rule-create ${SECURITY_GROUP_NAME} --protocol icmp
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
+neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
+neutron security-group-rule-create sfc_demo_sg --protocol icmp
 
 neutron security-group-rule-list
 ```
@@ -88,8 +86,8 @@ nova keypair-list
 ### Create instances
 
 ```bash
-nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups ${SECURITY_GROUP_NAME} --nic net-name=sfc_demo_net client
-nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups ${SECURITY_GROUP_NAME} --nic net-name=sfc_demo_net server
+nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net client
+nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net server
 nova list
 ```
 
@@ -132,12 +130,83 @@ curl --connect-timeout 5 http://localhost
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
-while true; do curl --connect-timeout 2 http://<server-internal>; sleep2; done
+while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 ```
 
 ## VNFD
 
-Copy the files [VNFD 1](../sfc-files/test-vfnd1.yaml) and [VNFD 2](../sfc-files/test-vfnd2.yaml) to the Host and create a VNFD:
+### VNFD files
+
+```bash
+
+echo -e "template_name: test-vnfd1
+description: firewall1-example
+
+service_properties:
+  Id: firewall1-vnfd
+  vendor: tacker
+  version: 1
+  type:
+      - firewall1
+vdus:
+  vdu1:
+    id: vdu1
+    vm_image: sfc_demo_image
+    instance_type: sfc_demo_flavor
+    service_type: firewall1
+
+    network_interfaces:
+      management:
+        network: sfc_demo_net
+        management: true
+
+    placement_policy:
+      availability_zone: nova
+
+    auto-scaling: noop
+    monitoring_policy: noop
+    failure_policy: respawn
+
+    config:
+      param0: key0
+      param1: key1" > test-vnfd1.yaml
+
+echo -e "template_name: test-vnfd2
+description: firewall2-example
+
+service_properties:
+  Id: firewall2-vnfd
+  vendor: tacker
+  version: 1
+  type:
+      - firewall2
+vdus:
+  vdu1:
+    id: vdu1
+    vm_image: sfc_demo_image
+    instance_type: sfc_demo_flavor
+    service_type: firewall2
+
+    network_interfaces:
+      management:
+        network: sfc_demo_net
+        management: true
+
+    placement_policy:
+      availability_zone: nova
+
+    auto-scaling: noop
+    monitoring_policy: noop
+    failure_policy: respawn
+
+    config:
+      param0: key0
+      param1: key1" > test-vnfd2.yaml
+```
+
+or optional copy the files [VNFD 1](../sfc-files/test-vfnd1.yaml) and [VNFD 2](../sfc-files/test-vfnd2.yaml) to the Host and create a VNFD:
+
+### Create VNFDs
 
 ```bash
 tacker vnfd-create --vnfd-file ./test-vnfd1.yaml
@@ -162,10 +231,7 @@ To be able to login into the VNFs we need to create a floating IP.
 ```bash
 VNF1_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
 # Fetch the ID of the VNF 1
-nova list
 VNF1_ID=""
-
-VNF1_ID=efd76fc5-26c4-4799-ade2-1c2730eca140
 VNF1_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF1_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF1_FIP_ID $VNF1_PORT
 VNF1_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF1_FIP_ID)
@@ -178,9 +244,7 @@ The same for VNF2:
 ```bash
 VNF2_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
 # Fetch the ID of the VNF 1
-nova list
 VNF2_ID=""
-VNF2_ID=5ec108a7-c709-4d1f-b9ad-2429a7a790ab
 VNF2_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF2_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF2_FIP_ID $VNF2_PORT
 VNF2_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF2_FIP_ID)
@@ -228,24 +292,23 @@ tacker device-delete testVNF2
 tacker device-template-delete test-vnfd1
 tacker device-template-delete test-vnfd2
 
-nova flavor-delete sfc_demo_flavor
-glance image-delete $(glance image-list | grep sfc_demo_image | awk '{print $2}')
-
-nova delete client server
-
-neutron router-gateway-clear sfc_demo_router
-neutron router-interface-delete sfc_demo_router subnet=sfc_demo_net_subnet
-neutron router-delete sfc_demo_router
-neutron net-delete sfc_demo_net
-neutron security-group-delete sfc_demo_sg
-
 tacker sfc-classifier-delete blue_http
 tacker sfc-classifier-delete blue_ssh
 
 tacker sfc-delete blue
 tacker sfc-delete red
 
+#nova flavor-delete sfc_demo_flavor
+#glance image-delete $(glance image-list | grep sfc_demo_image | awk '{print $2}')
+
 nova delete client server
+
+for i in $(neutron port-list | grep 11.0.0\. | awk '{print $2}'); do neutron port-delete $i; done
+neutron router-gateway-clear sfc_demo_router
+neutron router-interface-delete sfc_demo_router subnet=sfc_demo_net_subnet
+neutron router-delete sfc_demo_router
+neutron net-delete sfc_demo_net
+neutron security-group-delete sfc_demo_sg
 ```
 
 There seems to be a little problem with cleaning up the classifiers, when you delete the classifiers with `tacker sfc-classifier-delete <name>` the ovs rules stay (until they get overwritten).
