@@ -114,7 +114,7 @@ sudo virt-install -n opnfv-fuel -r 8192 --vcpus=4 --cpuset=0-3 -c ~/opnfv.iso --
 sudo virsh vncdisplay opnfv-fuel
 ```
 
-### Configure Fuel
+## Fuel
 
 - eth0
 - Default gateway `10.20.0.1`
@@ -142,7 +142,7 @@ sudo sysctl -w net.ipv4.ip_forward=1
 sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
 
-#### Install Fuel Plugins
+### Install Fuel Plugins
 
 List all installed fuel plugins:
 
@@ -164,7 +164,7 @@ Validate all Plugins:
 fuel plugins --list
 ```
 
-#### Add Fuel Nodes
+### Add Fuel Nodes
 
 ```bash
 fuel node list
@@ -202,50 +202,92 @@ ssh -A -t user@host1 -L 8443:localhost:8443 ssh -A -t user@host2 -L 8443:10.20.0
 
 User: `admin` and password: `admin`
 
-#### Deploy OPNFV
+## Deploy OPNFV
 
-##### Setup an environment
+### Setup an environment
 
-- Name: `OPNFV-Test`
+- Name: `OPNFV`
 - Compute: `QEMU-KVM`
 - Network: `OpenDayLight with tunneling segmentation`
 - Storage: `Ceph`
 
-##### Activate the fuel plugins:
+### Setttings
 
-- Settings -> OpenStack Settings -> Tacker
-- Settings -> Storage -> Ceph object replication factor: 2 (not recommend but I only had 2 compute nodes)
-- Settings -> Other -> OVS (all options)
-- Settings -> Other -> ODL SFC - NetVirt
-- Settings -> Compute -> KVM
-- Settings -> Provision -> Inital Packages -> Add `systemd-shim`
+#### General
 
-##### Now we have to add our Nodes:
+This step is needed as long this PR isn't merged: <https://review.openstack.org/#/c/409112> see here:
 
-```bash
-nodes:
-- id: 1
-  role: mongo,controller,tacker,opendaylight
-- id: 2
-  role: ceph-osd,compute
-- id: 3
-  role: ceph-osd,compute
-```
+- <https://bugs.launchpad.net/fuel/+bug/1648732>
+- <https://bugs.launchpad.net/fuel/+bug/1648741>
+- <https://bugs.launchpad.net/fuel/+bug/1645304>
 
-##### Setup Network Interfaces
+Under `Provision` -> `Initial packages` add the package `systemd-shim` to the end.
 
-Go to Nodes -> Select all Nodes -> Configure interfaces
+#### Common
+
+- [X] KVM
+- [X] Resume guests state on host boot
+
+#### Storage
+
+- [X] Use qcow format for images
+- [X] Ceph RBD for volumes (Cinder)
+- [X] Ceph RBD for images (Glance)
+- [X] Ceph RBD for ephemeral volumes (Nova)
+- [X] Ceph RadosGW for objects (Swift API)
+
+IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the number of Ceph Nodes (not recommended).
+
+#### Other
+
+- [X] Install Openvswitch with NSH/DPDK
+- [X] Install DPDK
+- [X] Install NSH
+
+- [X] OpenDaylight plugin
+
+- [X] Use ODL to manage L3 traffic
+
+- [X] SFC features (NetVirt)
+
+#### OpenStack Services
+
+- [X] Tacker VNF manager
+
+### Networks
+
+We only need to activate `L2 population`
+
+#### Other
+
+- [X] Neutron L2 population
+
+### Nodes
+
+#### Controller
+
+- [X] mongo
+- [X] controller
+- [X] tacker
+- [X] opendaylight
+
+#### Compute
+
+- [X] ceph-osd
+- [X] compute
+
+#### Setup Network Interfaces
+
+Select all Nodes -> Configure interfaces
 
 - enp4s0f0: `Admin (PXE)`
 - enp11s0f1: `Public (VID 100), Management (VID 101), Storage (VID 102), Private (VID 103)`
 
-Click an apply and wait.
+Click apply and wait.
 
-##### Setup Network
+#### Setup Network
 
-##### Setup Nodes
-
-We need to setup the network to make the Network checks succeed
+We need to setup the network to make the Network checks succeed. SSH into each Fuel Node and execute the following steps:
 
 ```bash
 sudo modprobe 8021q
@@ -292,55 +334,17 @@ ifdown enp11s0f1.103; ifup enp11s0f1.103
 cat /proc/net/vlan/config
 ```
 
-##### Local Mirror
+### Local Mirror
 
 <http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/upgrade/upgrade-local-repo.html>
 
-TODO this could give some speed up but only nice to have
+**TODO** this could give some speed up but only nice to have
 
-##### Fix Fuel Ubuntu
+### Deployment
 
-This step is needed as long this PR isn't merged: <https://review.openstack.org/#/c/409112> see here:
+Got to the `Dashboard` and press deploy now you can grab a coffee and comeback later :)
 
-- <https://bugs.launchpad.net/fuel/+bug/1648732>
-- <https://bugs.launchpad.net/fuel/+bug/1648741>
-- <https://bugs.launchpad.net/fuel/+bug/1645304>
-
-```bash
-sed -i '/telnet/i \
-              systemd-shim' /lib/python2.7/site-packages/nailgun/fixtures/openstack.yaml
-```
-
-or if you run into this error execute the following steps from the fuel host:
-
-```bash
-export ID=2
-fuel settings --env-id ${ID} -d
-sed -i '/telnet/i \        systemd-shim\n' /root/settings_${ID}.yaml
-fuel settings --env-id ${ID} -u
-
-# Validate everything
-rm -f /root/settings_${ID}.yaml
-fuel settings --env-id ${ID} -d
-grep "systemd-shim" /root/settings_${ID}.yaml
-```
-
-or directly install the packages:
-
-```bash
-export FUEL_NODES=(10.20.0.3 10.20.0.4 10.20.0.5)
-for i in "${FUEL_NODES[@]}"; do ssh $i "apt-get -qq install -y systemd-shim"; done
-```
-
-After this trigger the Deployment again.
-
-TODO check if step is needed when fuel is provisioned or only before the first deployment
-
-`ovs-vsctl br-exists br-int returns 2` -> `ovs-vsctl add-br br-int`
-
-##### Deployment
-
-##### Post Deployment
+#### Post Deployment
 
 If you want to be able to login into the OPNFV Nodes from your Jump Host (not the fuel VM) execute the following steps:
 
@@ -348,9 +352,9 @@ If you want to be able to login into the OPNFV Nodes from your Jump Host (not th
 scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
 ```
 
-##### Tacker UI
+### Tacker UI
 
-<span style="color:red">The Tacker UI is not compatible with the OPNFV Tacker version</span>
+**The Tacker UI is not compatible with the OPNFV Tacker version**
 
 On the Controller Node:
 
@@ -361,7 +365,7 @@ cp openstack_dashboard_extensions/* /usr/share/openstack-dashboard/openstack_das
 sudo service apache2 restart
 ```
 
-##### OpenDaylight SFC UI
+### OpenDaylight SFC UI
 
 On the Controller Node:
 
@@ -371,13 +375,13 @@ feature:install odl-ovsdb-sfc-ui
 service opendaylight restart
 ```
 
-##### SFC testing
+### SFC testing
 
 [SFC testing](./sfc_testing.md)
 
-##### SFC/VNF demo
+### SFC/VNF demo
 
-See [SFC demo](docs/sfc_demo.md)
+[SFC demo](docs/sfc_demo.md)
 
 ### Clean Up
 
@@ -389,15 +393,15 @@ sudo virsh undefine opnfv-fuel
 sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
 ```
 
-# Debugging
+## Debugging
 
-## Check DHCP
+### Check DHCP
 
 ```bash
 sudo apt install dhcpdump
 sudo dhcpdump -i enp11s0f0
 ```
 
-# TODO
+## TODO
 
-- [ ] write ansible file
+- [ ] write Ansible playbooks
