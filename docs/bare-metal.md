@@ -155,7 +155,7 @@ All OPNFV related fuel plugins are on `/opt/opnfv/` for the scenario `no-ha_odl-
 ```bash
 fuel plugins --install /opt/opnfv/opendaylight-*.noarch.rpm
 fuel plugins --install /opt/opnfv/fuel-plugin-ovs-*.noarch.rpm
-fuel plugins --install /opt/opnfv/tacker-*1.noarch.rpm
+fuel plugins --install /opt/opnfv/tacker-*.noarch.rpm
 ```
 
 Validate all Plugins:

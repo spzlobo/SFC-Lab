@@ -1,4 +1,6 @@
-# SFC Demo with Tacker
+# A Simple SFC example
+
+## Setup
 
 ## Preparation
 
@@ -119,7 +121,6 @@ Stop iptables and start a simple Web server
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP
-sudo ufw disable
 sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80 > /dev/null; done" &
 # Test it
 curl --connect-timeout 5 http://localhost
@@ -137,8 +138,7 @@ while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 ### VNFD files
 
 ```bash
-
-echo -e "template_name: test-vnfd1
+echo -e "template_name: test-vnfd
 description: firewall1-example
 
 service_properties:
@@ -146,13 +146,13 @@ service_properties:
   vendor: tacker
   version: 1
   type:
-      - firewall1
+      - firewall
 vdus:
   vdu1:
     id: vdu1
     vm_image: sfc_demo_image
     instance_type: sfc_demo_flavor
-    service_type: firewall1
+    service_type: firewall
 
     network_interfaces:
       management:
@@ -168,39 +168,7 @@ vdus:
 
     config:
       param0: key0
-      param1: key1" > test-vnfd1.yaml
-
-echo -e "template_name: test-vnfd2
-description: firewall2-example
-
-service_properties:
-  Id: firewall2-vnfd
-  vendor: tacker
-  version: 1
-  type:
-      - firewall2
-vdus:
-  vdu1:
-    id: vdu1
-    vm_image: sfc_demo_image
-    instance_type: sfc_demo_flavor
-    service_type: firewall2
-
-    network_interfaces:
-      management:
-        network: sfc_demo_net
-        management: true
-
-    placement_policy:
-      availability_zone: nova
-
-    auto-scaling: noop
-    monitoring_policy: noop
-    failure_policy: respawn
-
-    config:
-      param0: key0
-      param1: key1" > test-vnfd2.yaml
+      param1: key1" > test-vnfd.yaml
 ```
 
 or optional copy the files [VNFD 1](../sfc-files/test-vfnd1.yaml) and [VNFD 2](../sfc-files/test-vfnd2.yaml) to the Host and create a VNFD:
@@ -208,46 +176,30 @@ or optional copy the files [VNFD 1](../sfc-files/test-vfnd1.yaml) and [VNFD 2](.
 ### Create VNFDs
 
 ```bash
-tacker vnfd-create --vnfd-file ./test-vnfd1.yaml
-tacker vnfd-create --vnfd-file ./test-vnfd2.yaml
+tacker vnfd-create --vnfd-file ./test-vnfd.yaml
 tacker vnfd-list
 ```
 
 Now we can deploy the VNF:
 
 ```bash
-tacker vnf-create --name testVNF1 --vnfd-name test-vnfd1
-tacker vnf-create --name testVNF2 --vnfd-name test-vnfd2
+tacker vnf-create --name testVNF --vnfd-name test-vnfd
 # Check the status
 heat stack-list
 tacker vnf-list
 ```
 
-### Start VNFs
+### Start VNF
 
 To be able to login into the VNFs we need to create a floating IP.
 
 ```bash
-VNF1_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
-# Fetch the ID of the VNF 1
-VNF1_ID=""
-VNF1_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF1_ID} | awk {'print $2'}))
-neutron floatingip-associate $VNF1_FIP_ID $VNF1_PORT
-VNF1_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF1_FIP_ID)
-# test SSH (at this time we still have the OPNFV image)
-sshpass -p opnfv ssh root@$VNF1_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > /root/vxlan.log  2>&1 &'
-```
-
-The same for VNF2:
-
-```bash
-VNF2_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
-# Fetch the ID of the VNF 1
-VNF2_ID=""
-VNF2_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF2_ID} | awk {'print $2'}))
-neutron floatingip-associate $VNF2_FIP_ID $VNF2_PORT
-VNF2_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF2_FIP_ID)
-sshpass -p opnfv ssh root@$VNF2_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 22 > /root/vxlan.log  2>&1 &'
+VNF_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+VNF_ID=""
+VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
+neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
+VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
+sshpass -p opnfv ssh root@$VNF_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > /root/vxlan.log  2>&1 &'
 ```
 
 ## SFC
@@ -255,29 +207,22 @@ sshpass -p opnfv ssh root@$VNF2_FIP 'cd /root;nohup python vxlan_tool.py -i eth0
 ### Create SFC
 
 ```bash
-#create service chain
-tacker sfc-create --name red --chain testVNF1
-tacker sfc-create --name blue --chain testVNF2
+tacker sfc-create --name testchain --chain testVNF
 tacker sfc-list
 ```
 
-### Create SFC classifiers
+### Create SFC classifiers for HTTP
 
 ```bash
 #create classifier
-tacker sfc-classifier-create --name red_http --chain red --match source_port=0,dest_port=80,protocol=6
-tacker sfc-classifier-create --name red_ssh --chain red --match source_port=0,dest_port=22,protocol=6
+tacker sfc-classifier-create --name test_http --chain testchain --match source_port=0,dest_port=80,protocol=6
 tacker sfc-classifier-list
 ```
 
 ## Recreate SFC classifiers
 
 ```bash
-tacker sfc-classifier-delete red_http
-tacker sfc-classifier-delete red_ssh
-
-tacker sfc-classifier-create --name blue_http --chain blue --match source_port=0,dest_port=80,protocol=6
-tacker sfc-classifier-create --name blue_ssh  --chain blue --match source_port=0,dest_port=22,protocol=6
+tacker sfc-classifier-create --name test_ssh --chain testchain --match source_port=0,dest_port=22,protocol=6
 tacker sfc-classifier-list
 ```
 
@@ -285,17 +230,11 @@ tacker sfc-classifier-list
 
 ```bash
 # Delete VNFDs
-tacker device-delete testVNF1
-tacker device-delete testVNF2
-
-tacker device-template-delete test-vnfd1
-tacker device-template-delete test-vnfd2
-
-tacker sfc-classifier-delete blue_http
-tacker sfc-classifier-delete blue_ssh
-
-tacker sfc-delete blue
-tacker sfc-delete red
+tacker device-delete testVNF
+tacker device-template-delete test-vnfd
+tacker sfc-classifier-delete test_http
+tacker sfc-classifier-delete test_ssh
+tacker sfc-delete testchain
 
 #nova flavor-delete sfc_demo_flavor
 #glance image-delete $(glance image-list | grep sfc_demo_image | awk '{print $2}')
@@ -310,4 +249,12 @@ neutron net-delete sfc_demo_net
 neutron security-group-delete sfc_demo_sg
 ```
 
-There seems to be a little problem with cleaning up the classifiers, when you delete the classifiers with `tacker sfc-classifier-delete <name>` the ovs rules stay (until they get overwritten).
+# TODO
+
+- [ ] Image of Setup
+- [ ] Clean up SFC ACL (OVSDB)
+
+```bash
+ACL_NAME=red-http
+curl -X DELETE -u admin:admin 172.16.0.3:8181/restconf/config/ietf-access-control-list:access-lists/acl/ietf-access-control-list:ipv4-acl/red-http
+```
