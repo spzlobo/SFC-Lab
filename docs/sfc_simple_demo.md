@@ -24,11 +24,11 @@ for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SS
 We use the official image from OPNFV (as long as we didn't created our own):
 
 ```bash
-curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2
+#curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2
 
 # Upload the image
-glance image-create --visibility=public --name=sfc_demo_image --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
-glance image-list
+#glance image-create --visibility=public --name=sfc_demo_image --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
+#glance image-list
 
 # Create a new flavor
 nova flavor-create --is-public=true sfc_demo_flavor auto 1500 10 1
@@ -137,6 +137,8 @@ while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 
 ### VNFD files
 
+**_TODO_** add ssh key id
+
 ```bash
 echo -e "template_name: test-vnfd
 description: firewall1-example
@@ -150,7 +152,7 @@ service_properties:
 vdus:
   vdu1:
     id: vdu1
-    vm_image: sfc_demo_image
+    vm_image: ubuntu-xenial
     instance_type: sfc_demo_flavor
     service_type: firewall
 
@@ -171,7 +173,7 @@ vdus:
       param1: key1" > test-vnfd.yaml
 ```
 
-or optional copy the files [VNFD 1](../sfc-files/test-vfnd1.yaml) and [VNFD 2](../sfc-files/test-vfnd2.yaml) to the Host and create a VNFD:
+or optional copy the file [VNFD](../sfc-files/test-vfnd.yaml) to the Host and create a VNFD:
 
 ### Create VNFDs
 
@@ -199,7 +201,17 @@ VNF_ID=""
 VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
 VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
-sshpass -p opnfv ssh root@$VNF_FIP 'cd /root;nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > /root/vxlan.log  2>&1 &'
+ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
+```
+
+#### Setup VNF
+
+```bash
+scp  -i ~/.ssh/sfc_demo <path-sf> ubuntu@$VNF_FIP:/usr/local/bin
+ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP
+# everything happens on the remote maschine
+apt-get install -qq -y python
+nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > vxlan.log  2>&1 &
 ```
 
 ## SFC
