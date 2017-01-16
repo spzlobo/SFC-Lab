@@ -11,14 +11,14 @@ Table ID | Use
 0        | Classifier
 10       | Director (Service Function Chaining (Classifier + SFF))
 20       | Distributed ARP Responder(L2population)
-30       | DNAT for inbound floating-ip traffic (floating IP)
+30       | DNAT for inbound traffic (floating IP)
 40       | Egress Acces-control (security groups)
 50       | Distributed LBaaS
 60       | Distributed Virtual Routing (DVR)
 70       | Layer 3 forwarding/lookup service (e.q. ICMP)
-80       | Layer2 rewrite service
+80       | Layer 2 rewrite service
 90       | Ingress Acces-control (security groups)
-100      | SNAT for traffic accessing external network
+100      | SNAT for outbound traffic (floating IP)
 110      | Layer2 mac,vlan based forwarding
 150      | Service Function Chaining
 

@@ -24,11 +24,11 @@ for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SS
 We use the official image from OPNFV (as long as we didn't created our own):
 
 ```bash
-#curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2
+curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2
 
 # Upload the image
-#glance image-create --visibility=public --name=sfc_demo_image --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
-#glance image-list
+glance image-create --visibility=public --name=sfc_demo_image --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
+glance image-list
 
 # Create a new flavor
 nova flavor-create --is-public=true sfc_demo_flavor auto 1500 10 1
@@ -64,6 +64,20 @@ neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 8
 neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
 neutron security-group-rule-create sfc_demo_sg --protocol icmp
 
+neutron security-group-rule-list
+```
+
+#### Allow SSH
+
+We allow ssh from `10.0.0.0/8` to all VM's
+
+```bash
+for i in $(neutron security-group-list -c id -f value); do
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress --remote-ip 10.0.0.0/8
+done
+
+neutron security-group-list
 neutron security-group-rule-list
 ```
 
@@ -141,7 +155,7 @@ while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 
 ```bash
 echo -e "template_name: test-vnfd
-description: firewall1-example
+description: firewall-example
 
 service_properties:
   Id: firewall1-vnfd
@@ -152,7 +166,7 @@ service_properties:
 vdus:
   vdu1:
     id: vdu1
-    vm_image: ubuntu-xenial
+    vm_image: sfc_demo_image
     instance_type: sfc_demo_flavor
     service_type: firewall
 
@@ -201,17 +215,13 @@ VNF_ID=""
 VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
 VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
-ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
+sshpass -p opnfv ssh root@$VNF_FIP 'echo Hello'
 ```
 
 #### Setup VNF
 
 ```bash
-scp  -i ~/.ssh/sfc_demo <path-sf> ubuntu@$VNF_FIP:/usr/local/bin
-ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP
-# everything happens on the remote maschine
-apt-get install -qq -y python
-nohup python vxlan_tool.py -i eth0 -d forward -v off -b 80 > vxlan.log  2>&1 &
+python vxlan_tool.py -i eth0 -d forward -v off -b 80
 ```
 
 ## SFC
