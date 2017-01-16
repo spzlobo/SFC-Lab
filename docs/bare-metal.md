@@ -103,7 +103,7 @@ sudo sysctl -w net.bridge.bridge-nf-call-iptables=0
 sudo sysctl -w net.bridge.bridge-nf-call-arptables=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=1
 sudo sysctl -w net.ipv4.conf.all.forwarding=1
-
+sudo sysctl -p
 #bridge-nf-call-arptables  bridge-nf-call-iptables
 #bridge-nf-call-ip6tables  bridge-nf-filter-vlan-tagged
 
@@ -131,6 +131,7 @@ ssh into fuel VM:
 
 ```bash
 # Password if not set: r00tme
+ssh-copy-id -i ~/.ssh/id_rsa root@10.20.0.2
 ssh root@10.20.0.2
 ```
 
@@ -138,6 +139,7 @@ Allow Traffic forwarding
 
 ```bash
 sudo sysctl -w net.ipv4.ip_forward=1
+sudo sysctl -p
 
 sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 ```
@@ -156,6 +158,9 @@ All OPNFV related fuel plugins are on `/opt/opnfv/` for the scenario `no-ha_odl-
 fuel plugins --install /opt/opnfv/opendaylight-*.noarch.rpm
 fuel plugins --install /opt/opnfv/fuel-plugin-ovs-*.noarch.rpm
 fuel plugins --install /opt/opnfv/tacker-*.noarch.rpm
+# Optional
+#fuel plugins --install /opt/opnfv/fuel-plugin-yardstick-*.noarch.rpm
+#fuel plugins --install /opt/opnfv/fuel-plugin-kvm-*.noarch.rpm
 ```
 
 Validate all Plugins:
@@ -181,6 +186,7 @@ sudo apt-get -qq -y install ipmitool openipmi freeipmi-tools
 
 export NODES=(192.168.106.112 192.168.106.113 192.168.106.114)
 for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power off; done
+sleep 10
 for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power on; done
 sleep 10
 for i in "${NODES[@]}"; do sudo ipmitool -I lanplus -H $i -U root -P changeme chassis power status; done
@@ -223,7 +229,7 @@ This step is needed as long this PR isn't merged: <https://review.openstack.org/
 
 Under `Provision` -> `Initial packages` add the package `systemd-shim` to the end.
 
-#### Common
+#### Compute
 
 - [X] KVM
 - [X] Resume guests state on host boot
@@ -241,13 +247,11 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 #### Other
 
 - [X] Install Openvswitch with NSH/DPDK
+- [X] Install same OVS version on the Controller
 - [X] Install DPDK
 - [X] Install NSH
-
 - [X] OpenDaylight plugin
-
 - [X] Use ODL to manage L3 traffic
-
 - [X] SFC features (NetVirt)
 
 #### OpenStack Services
@@ -256,11 +260,10 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 
 ### Networks
 
-We only need to activate `L2 population`
-
 #### Other
 
 - [X] Neutron L2 population
+- [X] Assign public network to all nodes
 
 ### Nodes
 
@@ -284,6 +287,16 @@ Select all Nodes -> Configure interfaces
 - enp11s0f1: `Public (VID 100), Management (VID 101), Storage (VID 102), Private (VID 103)`
 
 Click apply and wait.
+
+#### Fuel Nodes SSH
+
+If you want to be able to login into the OPNFV Nodes from your Jump Host (not the fuel VM) execute the following steps:
+
+```bash
+scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh/fuel
+```
+
+now you can login into the fuel nodes with `ssh -i ~/.ssh/fuel 10.20.0.4 -l root`
 
 #### Setup Network
 
@@ -336,21 +349,19 @@ cat /proc/net/vlan/config
 
 ### Local Mirror
 
-<http://docs.openstack.org/developer/fuel-docs/userdocs/fuel-install-guide/upgrade/upgrade-local-repo.html>
+On the fuel host create a Mirror and apply it (local files)
 
-**TODO** this could give some speed up but only nice to have
+```bash
+fuel-mirror create --debug -P ubuntu -G ubuntu
+fuel-mirror create --debug -P ubuntu -G mos
+# Use the mirror
+fuel-mirror apply --debug -P ubuntu -G ubuntu
+fuel-mirror apply --debug -P ubuntu -G mos
+```
 
 ### Deployment
 
 Got to the `Dashboard` and press deploy now you can grab a coffee and comeback later :)
-
-#### Post Deployment
-
-If you want to be able to login into the OPNFV Nodes from your Jump Host (not the fuel VM) execute the following steps:
-
-```bash
-scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh
-```
 
 ### Tacker UI
 
