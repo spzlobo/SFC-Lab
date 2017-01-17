@@ -248,7 +248,6 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 
 - [X] Install Openvswitch with NSH/DPDK
 - [X] Install same OVS version on the Controller
-- [X] Install DPDK
 - [X] Install NSH
 - [X] OpenDaylight plugin
 - [X] Use ODL to manage L3 traffic
@@ -349,14 +348,15 @@ cat /proc/net/vlan/config
 
 ### Local Mirror
 
-On the fuel host create a Mirror and apply it (local files)
+On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`
 
 ```bash
-fuel-mirror create --debug -P ubuntu -G ubuntu
-fuel-mirror create --debug -P ubuntu -G mos
+# These two steps may take a while
+fuel-mirror create -q -P ubuntu -G ubuntu
+fuel-mirror create -q -P ubuntu -G mos
 # Use the mirror
-fuel-mirror apply --debug -P ubuntu -G ubuntu
-fuel-mirror apply --debug -P ubuntu -G mos
+fuel-mirror apply -q -P ubuntu -G ubuntu
+fuel-mirror apply -q -P ubuntu -G mos
 ```
 
 ### Deployment
