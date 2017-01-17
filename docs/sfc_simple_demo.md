@@ -7,7 +7,6 @@
 This step allows us to ssh into the new created VMs (execute them on the Controller Node):
 
 ```bash
-apt-get install -y sshpass
 iptables -P INPUT ACCEPT
 iptables -t nat -P INPUT ACCEPT
 iptables -A INPUT -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
@@ -262,9 +261,6 @@ tacker sfc-classifier-delete test_http
 tacker sfc-classifier-delete test_ssh
 tacker sfc-delete testchain
 
-#nova flavor-delete sfc_demo_flavor
-#glance image-delete $(glance image-list | grep sfc_demo_image | awk '{print $2}')
-
 nova delete client server
 
 for i in $(neutron port-list | grep 11.0.0\. | awk '{print $2}'); do neutron port-delete $i; done
@@ -273,6 +269,14 @@ neutron router-interface-delete sfc_demo_router subnet=sfc_demo_net_subnet
 neutron router-delete sfc_demo_router
 neutron net-delete sfc_demo_net
 neutron security-group-delete sfc_demo_sg
+```
+
+There is a bug that not all rules get cleared use this snippet as work around:
+
+```bash
+ovs-ofctl -O OpenFlow13 del-flows br-int tcp,reg0=0x1,tp_dst=80
+ovs-ofctl -O OpenFlow13 del-flows br-int tcp,reg0=0x1,tp_dst=22
+ovs-ofctl -O OpenFlow13 del-flows br-int nsp
 ```
 
 # TODO
