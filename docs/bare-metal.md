@@ -386,6 +386,16 @@ feature:install odl-ovsdb-sfc-ui
 service opendaylight restart
 ```
 
+### SSH pass
+
+Install this tool for simple ssh authentication (**only for testing!**) On the Controller Node:
+
+```bash
+echo "deb http://de.archive.ubuntu.com/ubuntu trusty main universe" >> /etc/apt/sources.list
+apt-get update
+apt-get -qq install -y sshpass
+```
+
 ### SFC testing
 
 [SFC testing](./sfc_testing.md)

@@ -151,8 +151,6 @@ while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 
 ### VNFD files
 
-**_TODO_** add ssh key id
-
 ```bash
 echo -e "template_name: test-vnfd
 description: firewall-example
@@ -233,7 +231,7 @@ tacker sfc-create --name testchain --chain testVNF
 tacker sfc-list
 ```
 
-### Create SFC classifiers for HTTP
+### Create SFC classifier for HTTP
 
 ```bash
 #create classifier
@@ -241,11 +239,17 @@ tacker sfc-classifier-create --name test_http --chain testchain --match source_p
 tacker sfc-classifier-list
 ```
 
-## Recreate SFC classifiers
+## Add SFC classifier for SSH
 
 ```bash
 tacker sfc-classifier-create --name test_ssh --chain testchain --match source_port=0,dest_port=22,protocol=6
 tacker sfc-classifier-list
+```
+
+now we can adjust the firewall:
+
+```bash
+python vxlan_tool.py -i eth0 -d forward -v off -b 22
 ```
 
 # Clean Up
