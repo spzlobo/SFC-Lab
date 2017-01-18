@@ -102,6 +102,7 @@ nova keypair-list
 ```bash
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net client
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net server
+sleep 15
 nova list
 ```
 
@@ -114,7 +115,7 @@ CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --mini
 neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
 CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP_ID)
 # test SSH
-ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello World'
+ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
 
 ### Create Floating IP Server
@@ -125,7 +126,7 @@ SERVER_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --mini
 neutron floatingip-associate $SERVER_FIP_ID $SERVER_PORT
 SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP_ID)
 # test SSH
-ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello World'
+ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello Server'
 ```
 
 ### HTTP server
@@ -208,7 +209,7 @@ To be able to login into the VNFs we need to create a floating IP.
 
 ```bash
 VNF_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
-VNF_ID=""
+VNF_ID=$(nova list | grep ta- | awk {'print $2'})
 VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
 VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)

@@ -4,6 +4,8 @@
 
 ## Rules
 
+In the following steps are the OpenFlow rules which are needed for the SFC
+
 ### Node 1 (VXLAN 192.168.0.)
 
 Client VM was running on this node:
