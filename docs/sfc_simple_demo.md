@@ -272,19 +272,15 @@ neutron net-delete sfc_demo_net
 neutron security-group-delete sfc_demo_sg
 ```
 
-There is a bug that not all rules get cleared use this snippet as work around:
+There is a bug that not all rules get cleared use this snippet as work around (but be careful):
 
 ```bash
 ovs-ofctl -O OpenFlow13 del-flows br-int tcp,reg0=0x1,tp_dst=80
 ovs-ofctl -O OpenFlow13 del-flows br-int tcp,reg0=0x1,tp_dst=22
-ovs-ofctl -O OpenFlow13 del-flows br-int nsp
+ovs-ofctl -O OpenFlow13 del-flows br-int table=11,nsi=254
+ovs-ofctl -O OpenFlow13 del-flows br-int table=1,nsi=254
 ```
 
 # TODO
 
 - [ ] Image of Setup
-
-```bash
-ACL_NAME=red-http
-curl -X DELETE -u admin:admin 172.16.0.3:8181/restconf/config/ietf-access-control-list:access-lists/acl/ietf-access-control-list:ipv4-acl/red-http
-```
