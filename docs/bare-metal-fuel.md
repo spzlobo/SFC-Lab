@@ -33,11 +33,14 @@ iface br-enp11s0f0 inet static
     bridge_fd 0
     bridge_maxwait 0
 
-# Public Network 172.16.0.0/24 (untagged)
-auto enp4s0f1
-iface enp4s0f1 inet static
+iface enp4s0f1 inet manual
+
+# Public Network 172.16.0.0/24 (VID 104)
+auto enp4s0f1.104
+iface enp4s0f1.104 inet static
     address 172.16.0.1
     netmask 255.255.255.0
+    vlan-raw-device enp4s0f1
 
 # Storage Network 192.168.1.0/24 (VID 102)
 auto enp4s0f1.102
@@ -110,6 +113,9 @@ sudo sysctl -p
 # Start the Fuel Master
 sudo virt-install -n opnfv-fuel -r 8192 --vcpus=4 --cpuset=0-3 -c ~/opnfv.iso --os-type=linux --os-variant=rhel7 --boot hd,cdrom --disk path=/var/lib/libvirt/images/fuel-opnfv.qcow2,bus=virtio,size=50,format=qcow2 -w bridge=br-enp11s0f0,model=virtio --graphics vnc,listen=0.0.0.0
 
+# Auto Start Fuel VM
+sudo virsh autostart opnfv-fuel
+
 # get VNC port
 sudo virsh vncdisplay opnfv-fuel
 ```
@@ -159,7 +165,6 @@ fuel plugins --install /opt/opnfv/opendaylight-*.noarch.rpm
 fuel plugins --install /opt/opnfv/fuel-plugin-ovs-*.noarch.rpm
 fuel plugins --install /opt/opnfv/tacker-*.noarch.rpm
 # Optional
-#fuel plugins --install /opt/opnfv/fuel-plugin-yardstick-*.noarch.rpm
 #fuel plugins --install /opt/opnfv/fuel-plugin-kvm-*.noarch.rpm
 ```
 
@@ -283,7 +288,7 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 Select all Nodes -> Configure interfaces
 
 - enp4s0f0: `Admin (PXE)`
-- enp11s0f1: `Public (VID 100), Management (VID 101), Storage (VID 102), Private (VID 103)`
+- enp11s0f1: `Public (VID 104), Management (VID 101), Storage (VID 102), Private (VID 103)`
 
 Click apply and wait.
 
@@ -307,11 +312,14 @@ sudo sh -c 'echo -e "8021q" >> /etc/modules'
 
 export LAST_BYTE=$(ifconfig enp4s0f0 | grep 'inet addr' | cut -d: -f2 | awk '{print $1}' | awk -F. '{print $4}')
 
-echo "# Public Network 172.16.0.0/24 (untagged)
-auto enp11s0f1
-iface enp11s0f1 inet static
+echo "iface enp11s0f1 inet manual
+
+# Public Network 172.16.0.0/24 (VID 104)
+auto enp11s0f1.104
+iface enp11s0f1.104 inet static
     address 172.16.0.${LAST_BYTE}
     netmask 255.255.255.0
+    vlan-raw-device enp11s0f1
 
 # Storage Network 192.168.1.0/24 (VID 102)
 auto enp11s0f1.102
@@ -342,6 +350,7 @@ ifdown enp11s0f1; ifup enp11s0f1
 ifdown enp11s0f1.102; ifup enp11s0f1.102
 ifdown enp11s0f1.101; ifup enp11s0f1.101
 ifdown enp11s0f1.103; ifup enp11s0f1.103
+ifdown enp11s0f1.104; ifup enp11s0f1.104
 
 cat /proc/net/vlan/config
 ```
@@ -361,7 +370,7 @@ fuel-mirror apply -q -P ubuntu -G mos
 
 ### Deployment
 
-Got to the `Dashboard` and press deploy now you can grab a coffee and comeback later :)
+Go to the `Dashboard` and press deploy now you can grab a coffee and comeback later :)
 
 ### Tacker UI
 

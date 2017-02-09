@@ -2,7 +2,7 @@
 
 # TODO add args
 
-function clean_up() {
+function clean_up {
   tacker device-delete testVNF
   tacker device-template-delete test-vnfd
   tacker sfc-classifier-delete test_http
@@ -19,7 +19,7 @@ function clean_up() {
   neutron security-group-delete sfc_demo_sg
 }
 
-function vxlan_workaround() {
+function vxlan_workaround {
   echo "Running VXLAN workaround"
   iptables -P INPUT ACCEPT
   iptables -t nat -P INPUT ACCEPT
@@ -111,6 +111,7 @@ if $CLIENT_FIP_NEEDED; then
   neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
   CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP_ID)
   sleep 5
+  # TODO add backoff 5 times
   ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 fi
 
@@ -121,16 +122,18 @@ if $SERBER_FIP_NEEDED; then
   neutron floatingip-associate $SERVER_FIP_ID $SERVER_PORT
   SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP_ID)
   sleep 5
+  # TODO add backoff 5 times
   ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello Server'
 fi
 
 # TODO
-#ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP "echo \"while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80 > /dev/null; done\" > start_server.sh"
-#ssh -t -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP "nohup sudo bash ./start_server.sh"
 
-# TODO
-#ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
-#while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
+
+ssh -t -n -f -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP 'nohup sudo sh -c "while true; do { echo -n \"HTTP/1.1 200 OK\n\nHello World\n\"; } | nc -l 80; done" > /dev/null 2>&1 &'
+
+#INTERNAL_SERVER_IP=$(nova list | grep server |  awk {'print $12'} |  awk -F = {'print $2'})
+# TODO remove hardcoded
+ssh -n -f -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP 'nohup while true; do curl --connect-timeout 2 http://11.0.0.5; sleep 2; done > ./http.log 2>&1 &'
 
 
 if [ ! -f test-vnfd.yaml ]; then
@@ -164,6 +167,7 @@ if $VNF_FIP_NEEDED; then
   neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
   VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
   sleep 5
+  # TODO add backoff 5 times
   sshpass -p opnfv ssh root@$VNF_FIP 'echo Hello'
 fi
 
