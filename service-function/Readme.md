@@ -1,20 +1,14 @@
 # Create own service function
 
-<https://www.packer.io/intro/getting-started/setup.html>
+## Base OS
 
-## Packer
-
-Installation on Linux x64
+As a base OS we use [RancherOS](http://rancher.com/rancher-os) which is an minimal OS (~44m MB) that runs completely in Docker. To use RancherOS in OpenStack the following steps are needed:
 
 ```bash
-apt-get install -y -qq unzip
-curl -sLo /tmp/packer.zip https://releases.hashicorp.com/packer/0.12.1/packer_0.12.1_linux_amd64.zip
-unzip /tmp/packer.zip
-mv packer /usr/local/bin
-# Validate Installation
-packer --version
+curl -sLo /tmp/rancheros.img https://github.com/rancher/os/releases/download/v0.7.1/rancheros-openstack.img
+glance image-create --visibility=public --name=rancheros-v0.7.1 --disk-format=qcow2 --container-format=bare --file=/tmp/rancheros.img --progress
 ```
 
 ## VXLAN tool
 
-Source: <https://github.com/opendaylight/sfc/blob/master/sfc-test/nsh-tools/vxlan_tool.py>
+For simplicity we put the [vxlan_tool](https://github.com/opendaylight/sfc/blob/master/sfc-test/nsh-tools/vxlan_tool.py) into a Docker Container.
