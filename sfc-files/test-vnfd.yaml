@@ -31,8 +31,8 @@ vdus:
       #cloud-config
       coreos:
         units:
-          - name: \"docker-firewall.service\"
-            command: \"start\"
+          - name: "docker-firewall.service"
+            command: "start"
             content: |
               [Unit]
               Description=VXLAN tool as firewall
@@ -44,7 +44,7 @@ vdus:
               ExecStart=/usr/bin/docker run -ti --rm --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b 80
               ExecStop=/usr/bin/docker stop firewall
       ssh_authorized_keys:
-        - \"REPLACEME"
+        - "REPLACEME"
 
     config:
       param0: key0
