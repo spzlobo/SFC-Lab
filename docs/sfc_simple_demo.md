@@ -18,19 +18,29 @@ SSH_INSTALLER="sshpass -p r00tme ssh $ssh_options root@10.20.0.2"
 for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SSH_INSTALLER} 'ssh root@'"$i"' ifconfig br-int up'; ${SSH_INSTALLER} 'ssh root@'"$i"' ip route add 11.0.0.0/24 dev br-int'; done
 ```
 
-## SF Image
+### Create SSH keys
 
-We use the official image from OPNFV (as long as we didn't created our own):
+This step is optional you can also use your own SSH Key.
 
 ```bash
-curl -sLo /tmp/sf_nsh_colorado.qcow2 http://artifacts.opnfv.org/sfc/demo/sf_nsh_colorado.qcow2
+ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
+nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
+nova keypair-list
+```
 
-# Upload the image
-glance image-create --visibility=public --name=sfc_demo_image --disk-format=qcow2 --container-format=bare --file=/tmp/sf_nsh_colorado.qcow2 --progress
+## SF Image
+
+As a base OS we use [CoreOS](https://coreos.com/why/) which is an minimal OS designed to run containers. To use CoreOS with OpenStack the following steps are needed:
+
+```bash
+curl -sLo /tmp/coreos.img.bz2 https://stable.release.core-os.net/amd64-usr/current/coreos_production_openstack_image.img.bz2
+bunzip2  /tmp/coreos.img.bz2
+
+glance image-create --visibility=public --name=container-linux-stable --disk-format=qcow2 --container-format=bare --file=/tmp/coreos.img --progress
 glance image-list
 
 # Create a new flavor
-nova flavor-create --is-public=true sfc_demo_flavor auto 1500 10 1
+nova flavor-create --is-public=true sfc_demo_flavor auto --ram 1000 --disk 10 --vcpus 1
 nova flavor-list
 ```
 
@@ -55,10 +65,8 @@ neutron router-port-list sfc_demo_router
 neutron security-group-create sfc_demo_sg --description "Example SFC Security group"
 neutron security-group-list
 
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
 neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
 neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
 neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
 neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
 neutron security-group-rule-create sfc_demo_sg --protocol icmp
@@ -66,12 +74,16 @@ neutron security-group-rule-create sfc_demo_sg --protocol icmp
 neutron security-group-rule-list
 ```
 
-#### Allow SSH
+#### Allow SSH and HTTP(s)
 
 We allow ssh from `10.0.0.0/8` to all VM's
 
 ```bash
 for i in $(neutron security-group-list -c id -f value); do
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
+  neutron security-group-rule-create $i  --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
+  neutron security-group-rule-create $i  --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
   neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
   neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress --remote-ip 10.0.0.0/8
 done
@@ -87,14 +99,6 @@ neutron security-group-rule-list
 ```bash
 curl -sLo /tmp/ubuntu_xenial.img http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
 glance image-create --visibility=public --name=ubuntu-xenial --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img --progress
-```
-
-### Create SSH keys
-
-```bash
-ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
-nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
-nova keypair-list
 ```
 
 ### Create instances
@@ -118,7 +122,9 @@ CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
 
-### Create Floating IP Server
+# test SSH
+
+ssh -i ~/.ssh/sfc_demo coreos@$CLIENT_FIP echo 'Hello Client'
 
 ```bash
 SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
@@ -129,7 +135,7 @@ SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello Server'
 ```
 
-### HTTP server
+## HTTP server
 
 Stop iptables and start a simple Web server
 
@@ -140,7 +146,7 @@ sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc 
 curl --connect-timeout 5 http://localhost
 ```
 
-### Client Test
+## Client Test
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
@@ -164,7 +170,7 @@ service_properties:
 vdus:
   vdu1:
     id: vdu1
-    vm_image: sfc_demo_image
+    vm_image: container-linux-stable
     instance_type: sfc_demo_flavor
     service_type: firewall
 
@@ -180,12 +186,32 @@ vdus:
     monitoring_policy: noop
     failure_policy: respawn
 
+    user_data_format: RAW
+    user_data: |
+      #cloud-config
+      coreos:
+        units:
+          - name: \"docker-firewall.service\"
+            command: \"start\"
+            content: |
+              [Unit]
+              Description=VXLAN tool as firewall
+              After=docker.service
+
+              [Service]
+              Restart=always
+              ExecStartPre=/usr/bin/docker pull johscheuer/vxlan_tool:0.0.1
+              ExecStart=/usr/bin/docker run --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b 80
+              ExecStop=-/usr/bin/docker rm -f firewall
+      ssh_authorized_keys:
+        - \"$(cat ~/.ssh/sfc_demo.pub)\"
+
     config:
       param0: key0
       param1: key1" > test-vnfd.yaml
 ```
 
-or optional copy the file [VNFD](../sfc-files/test-vfnd.yaml) to the Host and create a VNFD:
+or optional copy the file [VNFD](../sfc-files/test-vfnd.yaml) to the Host. If you want to log into the VNF you need to specify your ssh key instead of `REPLACEME`. Now we can create a VNFD:
 
 ### Create VNFDs
 
@@ -213,13 +239,8 @@ VNF_ID=$(nova list | grep ta- | awk {'print $2'})
 VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
 neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
 VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
-sshpass -p opnfv ssh root@$VNF_FIP 'echo Hello'
-```
 
-#### Setup VNF
-
-```bash
-python vxlan_tool.py -i eth0 -d forward -v off -b 80
+ssh -i ~/.ssh/sfc_demo core@$VNF_FIP 'echo Hello'
 ```
 
 ## SFC
@@ -249,7 +270,10 @@ tacker sfc-classifier-list
 now we can adjust the firewall:
 
 ```bash
-python vxlan_tool.py -i eth0 -d forward -v off -b 22
+# TODO move port into config file
+sudo systemctl stop docker-firewall.service
+docker rm -f firewall
+docker run -ti --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b  22
 ```
 
 # Clean Up

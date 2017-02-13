@@ -10,7 +10,7 @@ service_properties:
 vdus:
   vdu1:
     id: vdu1
-    vm_image: sfc_demo_image
+    vm_image: container-linux-stable
     instance_type: sfc_demo_flavor
     service_type: firewall
 
@@ -26,6 +26,26 @@ vdus:
     monitoring_policy: noop
     failure_policy: respawn
 
+    user_data_format: RAW
+    user_data: |
+      #cloud-config
+      coreos:
+        units:
+          - name: \"docker-firewall.service\"
+            command: \"start\"
+            content: |
+              [Unit]
+              Description=VXLAN tool as firewall
+              Author=Johannes M. Scheuermann
+              After=docker.service
+
+              [Service]
+              Restart=always
+              ExecStart=/usr/bin/docker run -ti --rm --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b 80
+              ExecStop=/usr/bin/docker stop firewall
+      ssh_authorized_keys:
+        - \"REPLACEME"
+
     config:
       param0: key0
-      param1: key1
+      param1: key1"
