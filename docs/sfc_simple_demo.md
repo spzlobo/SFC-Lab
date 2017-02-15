@@ -40,7 +40,7 @@ glance image-create --visibility=public --name=container-linux-stable --disk-for
 glance image-list
 
 # Create a new flavor
-nova flavor-create --is-public=true sfc_demo_flavor auto --ram 1000 --disk 10 --vcpus 1
+nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
 nova flavor-list
 ```
 
@@ -64,11 +64,6 @@ neutron router-port-list sfc_demo_router
 ```bash
 neutron security-group-create sfc_demo_sg --description "Example SFC Security group"
 neutron security-group-list
-
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
-neutron security-group-rule-create sfc_demo_sg --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
 neutron security-group-rule-create sfc_demo_sg --protocol icmp
 
 neutron security-group-rule-list
@@ -84,7 +79,7 @@ for i in $(neutron security-group-list -c id -f value); do
   neutron security-group-rule-create $i --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
   neutron security-group-rule-create $i  --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
   neutron security-group-rule-create $i  --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
-  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress --remote-ip 10.0.0.0/8
   neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress --remote-ip 10.0.0.0/8
 done
 
@@ -123,8 +118,6 @@ ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
 
 # test SSH
-
-ssh -i ~/.ssh/sfc_demo coreos@$CLIENT_FIP echo 'Hello Client'
 
 ```bash
 SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
