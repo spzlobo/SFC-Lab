@@ -18,17 +18,7 @@ SSH_INSTALLER="sshpass -p r00tme ssh $ssh_options root@10.20.0.2"
 for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SSH_INSTALLER} 'ssh root@'"$i"' ifconfig br-int up'; ${SSH_INSTALLER} 'ssh root@'"$i"' ip route add 11.0.0.0/24 dev br-int'; done
 ```
 
-### Create SSH keys
-
-This step is optional you can also use your own SSH Key.
-
-```bash
-ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
-nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
-nova keypair-list
-```
-
-## SF Image
+### SF Image
 
 As a base OS we use [CoreOS](https://coreos.com/why/) which is an minimal OS designed to run containers. To use CoreOS with OpenStack the following steps are needed:
 
@@ -42,6 +32,23 @@ glance image-list
 # Create a new flavor
 nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
 nova flavor-list
+```
+
+### Download Ubuntu Xenial image
+
+```bash
+curl -sLo /tmp/ubuntu_xenial.img http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
+glance image-create --visibility=public --name=ubuntu-xenial --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img --progress
+```
+
+### Create SSH keys
+
+This step is optional you can also use your own SSH Key.
+
+```bash
+ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
+nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
+nova keypair-list
 ```
 
 ## Neutron Network
@@ -88,13 +95,6 @@ neutron security-group-rule-list
 ```
 
 ## HTTP Server and client
-
-### Download Ubuntu Xenial image
-
-```bash
-curl -sLo /tmp/ubuntu_xenial.img http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
-glance image-create --visibility=public --name=ubuntu-xenial --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img --progress
-```
 
 ### Create instances
 
