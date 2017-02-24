@@ -11,11 +11,6 @@ sudo service network restart
 sudo apt-get -qq -y install bridge-utils qemu-kvm libvirt-bin virtinst arping iptables-persistent vlan
 sudo adduser $USER libvirtd
 
-curl -sLo ~/opnfv.iso http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.3.0.iso
-
-export HWADDR=$(ip address show dev enp11s0f0 | awk '$1=="link/ether" {print $2}')
-# if there is already an entry for enp4s0f1 remove it
-# Create a bridge using the interface on the PXE network
 sudo tee -a /etc/network/interfaces <<-'EOF'
 # Managment Network
 iface enp11s0f0 inet manual
@@ -23,7 +18,7 @@ iface enp11s0f0 inet manual
 # br-enp11s0f0, the Admin (PXE) network bridge used to connect Fuel VM's eth0 to Admin (PXE) network.
 auto br-enp11s0f0
 iface br-enp11s0f0 inet static
-    hwaddress ether ${HWADDR}
+    hwaddress ether $(ip address show dev enp11s0f0 | awk '$1=="link/ether" {print $2}')
     address 10.20.0.1
     network 10.20.0.0
     netmask 255.255.255.0
@@ -107,17 +102,25 @@ sudo sysctl -w net.bridge.bridge-nf-call-arptables=0
 sudo sysctl -w net.ipv6.conf.all.forwarding=1
 sudo sysctl -w net.ipv4.conf.all.forwarding=1
 sudo sysctl -p
-#bridge-nf-call-arptables  bridge-nf-call-iptables
-#bridge-nf-call-ip6tables  bridge-nf-filter-vlan-tagged
 
 # Start the Fuel Master
-sudo virt-install -n opnfv-fuel -r 8192 --vcpus=4 --cpuset=0-3 -c ~/opnfv.iso --os-type=linux --os-variant=rhel7 --boot hd,cdrom --disk path=/var/lib/libvirt/images/fuel-opnfv.qcow2,bus=virtio,size=50,format=qcow2 -w bridge=br-enp11s0f0,model=virtio --graphics vnc,listen=0.0.0.0
+sudo virt-install -n opnfv_fuel \
+                  -r 8192 \
+                  --vcpus=4 \
+                  --cpuset=0-3 \
+                  --location http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.3.0.iso \
+                  --os-type=linux \
+                  --os-variant=rhel7 \
+                  --boot hd,cdrom \
+                  --disk path=/var/lib/libvirt/images/opnfv_fuel.qcow2,bus=virtio,size=50,format=qcow2 \
+                  -w bridge=br-enp11s0f0,model=virtio \
+                  --graphics vnc,listen=0.0.0.0
 
 # Auto Start Fuel VM
-sudo virsh autostart opnfv-fuel
+sudo virsh autostart opnfv_fuel
 
 # get VNC port
-sudo virsh vncdisplay opnfv-fuel
+sudo virsh vncdisplay opnfv_fuel
 ```
 
 ## Fuel

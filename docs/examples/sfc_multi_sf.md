@@ -302,6 +302,8 @@ tacker device-template-delete ssh-firewall-vnfd
 tacker sfc-classifier-delete http-classifier
 tacker sfc-classifier-delete ssh-classifier
 tacker sfc-delete firewall-chain
+tacker vnf-delete http-firewall
+tacker vnf-delete ssh-firewall
 
 nova delete client server
 
