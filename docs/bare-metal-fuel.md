@@ -103,12 +103,14 @@ sudo sysctl -w net.ipv6.conf.all.forwarding=1
 sudo sysctl -w net.ipv4.conf.all.forwarding=1
 sudo sysctl -p
 
+rm -f ~/opnfv_fuel.iso && curl -sLo ~/opnfv_fuel.iso http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.3.0.iso
+
 # Start the Fuel Master
 sudo virt-install -n opnfv_fuel \
                   -r 8192 \
                   --vcpus=4 \
                   --cpuset=0-3 \
-                  --location http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.3.0.iso \
+                  -c ~/opnfv_fuel.iso \
                   --os-type=linux \
                   --os-variant=rhel7 \
                   --boot hd,cdrom \
@@ -168,7 +170,7 @@ fuel plugins --install /opt/opnfv/opendaylight-*.noarch.rpm
 fuel plugins --install /opt/opnfv/fuel-plugin-ovs-*.noarch.rpm
 fuel plugins --install /opt/opnfv/tacker-*.noarch.rpm
 # Optional
-#fuel plugins --install /opt/opnfv/fuel-plugin-kvm-*.noarch.rpm
+fuel plugins --install /opt/opnfv/fuel-plugin-kvm-*.noarch.rpm
 ```
 
 Validate all Plugins:
@@ -303,6 +305,12 @@ If you want to be able to login into the OPNFV Nodes from your Jump Host (not th
 scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh/fuel
 ```
 
+or use the Jumphost:
+
+```bash
+ssh -A -t root@10.20.0.2 ssh -A -t 10.20.0.4
+```
+
 now you can login into the fuel nodes with `ssh -i ~/.ssh/fuel 10.20.0.4 -l root`
 
 #### Setup Network
@@ -360,7 +368,7 @@ cat /proc/net/vlan/config
 
 ### Local Mirror
 
-On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`
+On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`. In Fuel 10 `fuel-mirror` is replaced by [Packetary](https://wiki.openstack.org/wiki/Packetary).
 
 ```bash
 # These two steps may take a while
@@ -377,13 +385,12 @@ Go to the `Dashboard` and press deploy now you can grab a coffee and comeback la
 
 ### Tacker UI
 
-**The Tacker UI is not compatible with the OPNFV Tacker version**
-
 On the Controller Node:
 
 ```bash
-git clone https://github.com/openstack/tacker-horizon.git
-cd tacker-horizon/ && sudo python setup.py install
+git clone -b SFC https://github.com/trozet/tacker-horizon.git
+cd tacker-horizon/
+sudo python setup.py install
 cp openstack_dashboard_extensions/* /usr/share/openstack-dashboard/openstack_dashboard/enabled/
 sudo service apache2 restart
 ```
@@ -421,9 +428,9 @@ apt-get -qq install -y sshpass
 If you want to delete the fuel VM execute the following steps
 
 ```bash
-sudo virsh destroy opnfv-fuel
-sudo virsh undefine opnfv-fuel
-sudo rm /var/lib/libvirt/images/fuel-opnfv.qcow2
+sudo virsh destroy opnfv_fuel
+sudo virsh undefine opnfv_fuel
+sudo rm /var/lib/libvirt/images/opnfv_fuel.qcow2
 ```
 
 ## TODO

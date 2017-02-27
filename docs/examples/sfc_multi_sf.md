@@ -18,22 +18,6 @@ SSH_INSTALLER="sshpass -p r00tme ssh $ssh_options root@10.20.0.2"
 for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SSH_INSTALLER} 'ssh root@'"$i"' ifconfig br-int up'; ${SSH_INSTALLER} 'ssh root@'"$i"' ip route add 11.0.0.0/24 dev br-int'; done
 ```
 
-### SF Image
-
-As a base OS we use [CoreOS](https://coreos.com/why/) which is an minimal OS designed to run containers. To use CoreOS with OpenStack the following steps are needed:
-
-```bash
-curl -sLo /tmp/coreos.img.bz2 https://stable.release.core-os.net/amd64-usr/current/coreos_production_openstack_image.img.bz2
-bunzip2  /tmp/coreos.img.bz2
-
-glance image-create --visibility=public --name=container-linux-stable --disk-format=qcow2 --container-format=bare --file=/tmp/coreos.img --progress
-glance image-list
-
-# Create a new flavor
-nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
-nova flavor-list
-```
-
 ### Download Ubuntu Xenial image
 
 ```bash
@@ -49,6 +33,13 @@ This step is optional you can also use your own SSH Key.
 ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
 nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
 nova keypair-list
+```
+
+### Create Flavor
+
+```bash
+nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
+nova flavor-list
 ```
 
 ## Neutron Network
@@ -78,16 +69,14 @@ neutron security-group-rule-list
 
 #### Allow SSH and HTTP(s)
 
-We allow ssh from `10.0.0.0/8` to all VM's
-
 ```bash
 for i in $(neutron security-group-list -c id -f value); do
   neutron security-group-rule-create $i --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
   neutron security-group-rule-create $i --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
   neutron security-group-rule-create $i  --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
   neutron security-group-rule-create $i  --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
-  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress --remote-ip 10.0.0.0/8
-  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress --remote-ip 10.0.0.0/8
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
 done
 
 neutron security-group-list
@@ -108,7 +97,6 @@ nova list
 ### Create Floating IP Client
 
 ```bash
-# Bad output format in OpenStack... 'Associated floating IP 1adc93fe-382c-4777-94b4-400604dd5ccf'
 CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
 CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep client | awk {'print $2'}))
 neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
@@ -117,7 +105,7 @@ CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
 
-# test SSH
+### Create Floating IP Server
 
 ```bash
 SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
@@ -264,7 +252,7 @@ Now we can deploy the VNF:
 tacker vnf-create --name http-firewall --vnfd-name http-firewall-vnfd
 tacker vnf-create --name ssh-firewall --vnfd-name ssh-firewall-vnfd
 # Check the status
-heat stack-list
+openstack stack list
 tacker vnf-list
 ```
 
