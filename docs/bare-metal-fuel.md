@@ -433,6 +433,26 @@ sudo virsh undefine opnfv_fuel
 sudo rm /var/lib/libvirt/images/opnfv_fuel.qcow2
 ```
 
+## Danube
+
+Currently there is a bug in the keystone integration of tacker (<https://github.com/trozet/tacker/pull/24>)
+
+```bash
+# Original PR but not based on SFC Colorado branch -> https://patch-diff.githubusercontent.com/raw/trozet/tacker/pull/24.patch
+curl -sLo tacker.patch https://github.com/johscheuer/tacker/commit/ebe5337214b4e4d4b1062bf9e30e31c7867b642c.patch
+
+cd /usr/lib/python2.7/dist-packages/
+# Test it
+patch --dry-run -p1 < ~/tacker.patch
+
+# Apply it if there are any rejected changes apply them by hand
+patch -p1 < ~/tacker.patch
+
+find tacker -name "*.pyc" -exec rm -f {} \;
+systemctl restart tacker-server
+journalctl -fu tacker-server
+```
+
 ## TODO
 
 - [ ] write Ansible playbooks

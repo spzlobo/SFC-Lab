@@ -18,22 +18,6 @@ SSH_INSTALLER="sshpass -p r00tme ssh $ssh_options root@10.20.0.2"
 for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SSH_INSTALLER} 'ssh root@'"$i"' ifconfig br-int up'; ${SSH_INSTALLER} 'ssh root@'"$i"' ip route add 11.0.0.0/24 dev br-int'; done
 ```
 
-### SF Image
-
-As a base OS we use [CoreOS](https://coreos.com/why/) which is an minimal OS designed to run containers. To use CoreOS with OpenStack the following steps are needed:
-
-```bash
-curl -sLo /tmp/coreos.img.bz2 https://stable.release.core-os.net/amd64-usr/current/coreos_production_openstack_image.img.bz2
-bunzip2  /tmp/coreos.img.bz2
-
-glance image-create --visibility=public --name=container-linux-stable --disk-format=qcow2 --container-format=bare --file=/tmp/coreos.img --progress
-glance image-list
-
-# Create a new flavor
-nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
-nova flavor-list
-```
-
 ### Download Ubuntu Xenial image
 
 ```bash
@@ -49,6 +33,13 @@ This step is optional you can also use your own SSH Key.
 ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
 nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
 nova keypair-list
+```
+
+### Create Flavor
+
+```bash
+nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
+nova flavor-list
 ```
 
 ## Neutron Network
@@ -78,16 +69,16 @@ neutron security-group-rule-list
 
 #### Allow SSH and HTTP(s)
 
-We allow ssh from `10.0.0.0/8` to all VM's
+We allow ssh to all VM's
 
 ```bash
 for i in $(neutron security-group-list -c id -f value); do
   neutron security-group-rule-create $i --protocol tcp --port-range-min 80 --port-range-max 80 --direction ingress
   neutron security-group-rule-create $i --protocol tcp --port-range-min 443 --port-range-max 443 --direction ingress
-  neutron security-group-rule-create $i  --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
-  neutron security-group-rule-create $i  --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
-  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress --remote-ip 10.0.0.0/8
-  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress --remote-ip 10.0.0.0/8
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 80 --port-range-max 80 --direction egress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 443 --port-range-max 443 --direction egress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction ingress
+  neutron security-group-rule-create $i --protocol tcp --port-range-min 22 --port-range-max 22 --direction egress
 done
 
 neutron security-group-list
@@ -108,7 +99,6 @@ nova list
 ### Create Floating IP Client
 
 ```bash
-# Bad output format in OpenStack... 'Associated floating IP 1adc93fe-382c-4777-94b4-400604dd5ccf'
 CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
 CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep client | awk {'print $2'}))
 neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
@@ -151,11 +141,11 @@ while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 ### VNFD files
 
 ```bash
-echo -e "template_name: test-vnfd
-description: firewall-example
+echo -e "template_name: http-firewall-vnfd
+description: HTTP firewall
 
 service_properties:
-  Id: firewall1-vnfd
+  Id: http-firewall-vnfd
   vendor: tacker
   version: 1
   type:
@@ -163,7 +153,7 @@ service_properties:
 vdus:
   vdu1:
     id: vdu1
-    vm_image: container-linux-stable
+    vm_image: ubuntu-xenial
     instance_type: sfc_demo_flavor
     service_type: firewall
 
@@ -182,43 +172,35 @@ vdus:
     user_data_format: RAW
     user_data: |
       #cloud-config
-      coreos:
-        units:
-          - name: \"docker-firewall.service\"
-            command: \"start\"
-            content: |
-              [Unit]
-              Description=VXLAN tool as firewall
-              After=docker.service
+      packages:
+        - python3
+        - curl
 
-              [Service]
-              Restart=always
-              ExecStartPre=/usr/bin/docker pull johscheuer/vxlan_tool:0.0.1
-              ExecStart=/usr/bin/docker run --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b 80
-              ExecStop=-/usr/bin/docker rm -f firewall
+      runcmd:
+        - [ curl, "https://raw.githubusercontent.com/opendaylight/sfc/master/sfc-test/nsh-tools/vxlan_tool.py", -sLO, /usr/bin/vxlan_tool.py ]
+        - [ chmod, +x, /usr/bin/vxlan_tool.py ]
+        - [ python3, /usr/bin/vxlan_tool.py, -i eth0, -d forward, -v off, -b 80 ]
+
       ssh_authorized_keys:
         - \"$(cat ~/.ssh/sfc_demo.pub)\"
-
     config:
       param0: key0
-      param1: key1" > test-vnfd.yaml
+      param1: key1" > http-firewall-vnfd.yaml
 ```
-
-or optional copy the file [VNFD](../sfc-files/test-vfnd.yaml) to the Host. If you want to log into the VNF you need to specify your ssh key instead of `REPLACEME`. Now we can create a VNFD:
 
 ### Create VNFDs
 
 ```bash
-tacker vnfd-create --vnfd-file ./test-vnfd.yaml
+tacker vnfd-create --vnfd-file ./http-firewall-vnfd.yaml
 tacker vnfd-list
 ```
 
 Now we can deploy the VNF:
 
 ```bash
-tacker vnf-create --name testVNF --vnfd-name test-vnfd
+tacker vnf-create --name http-firewall --vnfd-name http-firewall-vnfd
 # Check the status
-heat stack-list
+openstack stack list
 tacker vnf-list
 ```
 
@@ -233,7 +215,7 @@ VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal
 neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
 VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
 
-ssh -i ~/.ssh/sfc_demo core@$VNF_FIP 'echo Hello'
+ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
 ```
 
 ## SFC
@@ -241,7 +223,7 @@ ssh -i ~/.ssh/sfc_demo core@$VNF_FIP 'echo Hello'
 ### Create SFC
 
 ```bash
-tacker sfc-create --name testchain --chain testVNF
+tacker sfc-create --name firewall-chain --chain http-firewall
 tacker sfc-list
 ```
 
@@ -249,35 +231,33 @@ tacker sfc-list
 
 ```bash
 #create classifier
-tacker sfc-classifier-create --name test_http --chain testchain --match source_port=0,dest_port=80,protocol=6
+tacker sfc-classifier-create --name http-classifier test_http --chain firewall-chain --match source_port=0,dest_port=80,protocol=6
 tacker sfc-classifier-list
 ```
 
-## Add SFC classifier for SSH
+### Create SFC classifier for SSH
 
 ```bash
-tacker sfc-classifier-create --name test_ssh --chain testchain --match source_port=0,dest_port=22,protocol=6
+tacker sfc-classifier-create --name ssh-classifier --chain firewall-chain --match source_port=0,dest_port=22,protocol=6
 tacker sfc-classifier-list
 ```
 
 now we can adjust the firewall:
 
 ```bash
-# TODO move port into config file
-sudo systemctl stop docker-firewall.service
-docker rm -f firewall
-docker run -ti --name firewall --network=host johscheuer/vxlan_tool:0.0.1 python3 vxlan_tool.py -i eth0 -d forward -v off -b  22
+sudo pkill python3
+sudo python3 vxlan_tool.py -i eth0 -d forward -v off -b  22
 ```
 
 # Clean Up
 
 ```bash
 # Delete VNFDs
-tacker device-delete testVNF
-tacker device-template-delete test-vnfd
-tacker sfc-classifier-delete test_http
-tacker sfc-classifier-delete test_ssh
-tacker sfc-delete testchain
+tacker device-delete http-firewall
+tacker device-template-delete http-firewall-vnfd
+tacker sfc-classifier-delete http-classifier
+tacker sfc-classifier-delete ssh-classifier
+tacker sfc-delete firewall-chain
 
 nova delete client server
 
