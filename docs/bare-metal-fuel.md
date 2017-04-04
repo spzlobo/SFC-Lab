@@ -103,7 +103,7 @@ sudo sysctl -w net.ipv6.conf.all.forwarding=1
 sudo sysctl -w net.ipv4.conf.all.forwarding=1
 sudo sysctl -p
 
-rm -f ~/opnfv_fuel.iso && curl -sLo ~/opnfv_fuel.iso http://artifacts.opnfv.org/fuel/colorado/opnfv-colorado.3.0.iso
+rm -f ~/opnfv_fuel.iso && curl -sLo ~/opnfv_fuel.iso http://artifacts.opnfv.org/fuel/danube/opnfv-danube.1.0.iso
 
 # Start the Fuel Master
 sudo virt-install -n opnfv_fuel \
@@ -368,7 +368,7 @@ cat /proc/net/vlan/config
 
 ### Local Mirror
 
-On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`. In Fuel 10 `fuel-mirror` is replaced by [Packetary](https://wiki.openstack.org/wiki/Packetary).
+On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`. In Fuel 10 (Danube) `fuel-mirror` is replaced by [Packetary](https://wiki.openstack.org/wiki/Packetary).
 
 ```bash
 # These two steps may take a while

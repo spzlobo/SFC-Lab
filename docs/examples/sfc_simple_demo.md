@@ -99,7 +99,7 @@ nova list
 ### Create Floating IP Client
 
 ```bash
-CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value)
 CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep client | awk {'print $2'}))
 neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
 CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP_ID)
@@ -110,7 +110,7 @@ ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 # test SSH
 
 ```bash
-SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
+SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value)
 SERVER_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep server | awk {'print $2'}))
 neutron floatingip-associate $SERVER_FIP_ID $SERVER_PORT
 SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP_ID)
@@ -183,6 +183,7 @@ vdus:
 
       ssh_authorized_keys:
         - \"$(cat ~/.ssh/sfc_demo.pub)\"
+
     config:
       param0: key0
       param1: key1" > http-firewall-vnfd.yaml
@@ -204,7 +205,7 @@ openstack stack list
 tacker vnf-list
 ```
 
-### Start VNF
+### Login VNF
 
 To be able to login into the VNFs we need to create a floating IP.
 
@@ -231,7 +232,7 @@ tacker sfc-list
 
 ```bash
 #create classifier
-tacker sfc-classifier-create --name http-classifier test_http --chain firewall-chain --match source_port=0,dest_port=80,protocol=6
+tacker sfc-classifier-create --name http-classifier --chain firewall-chain --match source_port=0,dest_port=80,protocol=6
 tacker sfc-classifier-list
 ```
 
