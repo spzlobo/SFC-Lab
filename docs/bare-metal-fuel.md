@@ -229,15 +229,9 @@ User: `admin` and password: `admin`
 
 ### Setttings
 
-#### General
+#### Security
 
-This step is needed as long this PR isn't merged: <https://review.openstack.org/#/c/409112> see here:
-
-- <https://bugs.launchpad.net/fuel/+bug/1648732>
-- <https://bugs.launchpad.net/fuel/+bug/1648741>
-- <https://bugs.launchpad.net/fuel/+bug/1645304>
-
-Under `Provision` -> `Initial packages` add the package `systemd-shim` to the end.
+- [X] Open vSwitch Firewall Driver
 
 #### Compute
 
@@ -252,15 +246,17 @@ Under `Provision` -> `Initial packages` add the package `systemd-shim` to the en
 - [X] Ceph RBD for ephemeral volumes (Nova)
 - [X] Ceph RadosGW for objects (Swift API)
 
-IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the number of Ceph Nodes (not recommended).
+IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the number of Ceph Nodes - 1 (not recommended).
 
 #### Other
 
-- [X] Install Openvswitch with NSH/DPDK
-- [X] Install same OVS version on the Controller
-- [X] Install NSH
+- [X] Install Open vSwitch with NSH
+
+  - [X] Install NSH
+  - [X] Install same OVS version on the Controller
+
 - [X] OpenDaylight plugin
-- [X] Use ODL to manage L3 traffic
+
 - [X] SFC features (NetVirt)
 
 #### OpenStack Services
@@ -278,15 +274,17 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 
 #### Controller
 
-- [X] mongo
-- [X] controller
-- [X] tacker
-- [X] opendaylight
+- [X] Controller
+- [X] Tacker
+- [X] OpenDaylight
+- [X] Ceph-OSD
+- [X] Base-OS
 
 #### Compute
 
-- [X] ceph-osd
-- [X] compute
+- [X] Compute
+- [X] Ceph-OSD
+- [X] Base-OS
 
 #### Setup Network Interfaces
 
@@ -303,6 +301,7 @@ If you want to be able to login into the OPNFV Nodes from your Jump Host (not th
 
 ```bash
 scp -r root@10.20.0.2:/root/.ssh/* ~/.ssh/fuel
+ssh -i ~/.ssh/fuel 10.20.0.4 -l root
 ```
 
 or use the Jumphost:
@@ -310,8 +309,6 @@ or use the Jumphost:
 ```bash
 ssh -A -t root@10.20.0.2 ssh -A -t 10.20.0.4
 ```
-
-now you can login into the fuel nodes with `ssh -i ~/.ssh/fuel 10.20.0.4 -l root`
 
 #### Setup Network
 
@@ -366,19 +363,6 @@ ifdown enp11s0f1.104; ifup enp11s0f1.104
 cat /proc/net/vlan/config
 ```
 
-### Local Mirror
-
-On the fuel host create a Mirror and apply it (local files). You can get information about the `profile` and possible groups in `/usr/share/fuel-mirror/<profile>.yaml`. In Fuel 10 (Danube) `fuel-mirror` is replaced by [Packetary](https://wiki.openstack.org/wiki/Packetary).
-
-```bash
-# These two steps may take a while
-fuel-mirror create -q -P ubuntu -G ubuntu
-fuel-mirror create -q -P ubuntu -G mos
-# Use the mirror
-fuel-mirror apply -q -P ubuntu -G ubuntu
-fuel-mirror apply -q -P ubuntu -G mos
-```
-
 ### Deployment
 
 Go to the `Dashboard` and press deploy now you can grab a coffee and comeback later :)
@@ -395,22 +379,11 @@ cp openstack_dashboard_extensions/* /usr/share/openstack-dashboard/openstack_das
 sudo service apache2 restart
 ```
 
-### OpenDaylight SFC UI
-
-On the Controller Node:
-
-```bash
-/opt/opendaylight/bin/client
-feature:install odl-ovsdb-sfc-ui
-service opendaylight restart
-```
-
 ### SSH pass
 
 Install this tool for simple ssh authentication (**only for testing!**) On the Controller Node:
 
 ```bash
-echo "deb http://de.archive.ubuntu.com/ubuntu trusty main universe" >> /etc/apt/sources.list
 apt-get update
 apt-get -qq install -y sshpass
 ```
@@ -435,24 +408,8 @@ sudo rm /var/lib/libvirt/images/opnfv_fuel.qcow2
 
 ## Danube
 
-Currently there is a bug in the keystone integration of tacker (<https://github.com/trozet/tacker/pull/24>)
+Currently the generated `tackerc` file is missing two env variables:
 
 ```bash
-# Original PR but not based on SFC Colorado branch -> https://patch-diff.githubusercontent.com/raw/trozet/tacker/pull/24.patch
-curl -sLo tacker.patch https://github.com/johscheuer/tacker/commit/ebe5337214b4e4d4b1062bf9e30e31c7867b642c.patch
-
-cd /usr/lib/python2.7/dist-packages/
-# Test it
-patch --dry-run -p1 < ~/tacker.patch
-
-# Apply it if there are any rejected changes apply them by hand
-patch -p1 < ~/tacker.patch
-
-find tacker -name "*.pyc" -exec rm -f {} \;
-systemctl restart tacker-server
-journalctl -fu tacker-server
+echo -e "export OS_USER_DOMAIN_NAME='Default'\nexport OS_PROJECT_DOMAIN_NAME='Default'" >> tackerc
 ```
-
-## TODO
-
-- [ ] write Ansible playbooks
