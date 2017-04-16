@@ -390,6 +390,15 @@ apt-get update
 apt-get -qq install -y sshpass
 ```
 
+### Auto Complete
+
+To use auto complete in the openstack cli use the following commands:
+
+```bash
+openstack complete | sudo tee /etc/bash_completion.d/osc.bash_completion > /dev/null
+. ~/.bashrc
+```
+
 ### SFC testing
 
 [SFC testing](./sfc_testing.md)
