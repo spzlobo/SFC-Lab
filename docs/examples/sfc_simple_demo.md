@@ -22,7 +22,7 @@ for i in $(${SSH_INSTALLER} 'fuel node'|grep compute| awk '{print $9}'); do ${SS
 
 ```bash
 curl -sLo /tmp/ubuntu_xenial.img http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
-glance image-create --visibility=public --name=ubuntu-xenial --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img --progress
+openstack image create --public --disk-format=qcow2 --container-format=bare --file=/tmp/ubuntu_xenial.img ubuntu-xenial
 ```
 
 ### Create SSH keys
@@ -31,15 +31,15 @@ This step is optional you can also use your own SSH Key.
 
 ```bash
 ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
-nova keypair-add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
-nova keypair-list
+openstack keypair add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
+openstack keypair list
 ```
 
 ### Create Flavor
 
 ```bash
-nova flavor-create --is-public=true sfc_demo_flavor auto 1000 10 1
-nova flavor-list
+openstack flavor create --public --ram 1000 --disk 10 --vcpus 1 sfc_demo_flavor
+openstack flavor list
 ```
 
 ## Neutron Network
@@ -47,6 +47,7 @@ nova flavor-list
 Create at first a Neutron network
 
 ```bash
+# TODO move these into openstack synatx
 neutron net-create sfc_demo_net --provider:network_type=vxlan --provider:segmentation_id 1005
 neutron subnet-create --dns-nameserver 8.8.8.8 sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
 neutron router-create sfc_demo_router
@@ -99,10 +100,8 @@ nova list
 ### Create Floating IP Client
 
 ```bash
-CLIENT_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value)
-CLIENT_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep client | awk {'print $2'}))
-neutron floatingip-associate $CLIENT_FIP_ID $CLIENT_PORT
-CLIENT_FIP=$(neutron floatingip-show -c floating_ip_address -f value $CLIENT_FIP_ID)
+CLIENT_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
+openstack server add floating ip client $CLIENT_FIP_ID
 # test SSH
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
@@ -110,10 +109,8 @@ ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 # test SSH
 
 ```bash
-SERVER_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value)
-SERVER_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep server | awk {'print $2'}))
-neutron floatingip-associate $SERVER_FIP_ID $SERVER_PORT
-SERVER_FIP=$(neutron floatingip-show -c floating_ip_address -f value $SERVER_FIP_ID)
+SERVER_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
+openstack server add floating ip server $SERVER_FIP
 # test SSH
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello Server'
 ```
@@ -124,7 +121,7 @@ Stop iptables and start a simple Web server
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP
-sudo sh -c "while true; do { echo -n 'HTTP/1.1 200 OK\n\nHello World\n'; } | nc -l 80 > /dev/null; done" &
+sudo python3 -m http.server 80
 # Test it
 curl --connect-timeout 5 http://localhost
 ```
@@ -210,12 +207,9 @@ tacker vnf-list
 To be able to login into the VNFs we need to create a floating IP.
 
 ```bash
-VNF_FIP_ID=$(neutron floatingip-create admin_floating_net -c id -f value | awk 'NR==2')
-VNF_ID=$(nova list | grep ta- | awk {'print $2'})
-VNF_PORT=$(neutron port-list -c id -f value -- --device_id $(nova list --minimal | grep ${VNF_ID} | awk {'print $2'}))
-neutron floatingip-associate $VNF_FIP_ID $VNF_PORT
-VNF_FIP=$(neutron floatingip-show -c floating_ip_address -f value $VNF_FIP_ID)
-
+VNF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
+openstack server add floating ip $(openstack server list | grep ta- | awk {'print $4'}) $CLIENT_FIP_ID
+# test SSH
 ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
 ```
 
