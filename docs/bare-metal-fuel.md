@@ -259,6 +259,8 @@ IF you have less then 3 Ceph Nodes set `Ceph object replication factor` to the n
 
 - [X] SFC features (NetVirt)
 
+- OpenDaylight Version: `5.2.0-1`
+
 #### OpenStack Services
 
 - [X] Tacker VNF manager
