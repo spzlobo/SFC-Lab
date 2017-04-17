@@ -208,9 +208,24 @@ To be able to login into the VNFs we need to create a floating IP.
 
 ```bash
 VNF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
-openstack server add floating ip $(openstack server list | grep ta- | awk {'print $4'}) $CLIENT_FIP_ID
+openstack server add floating ip $(openstack server list -c Name -f value | grep ta-) $CLIENT_FIP_ID
 # test SSH
 ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
+```
+
+### Migration
+
+The SFC rules are currently not updated when you make a (live) migration.
+
+```
+# Get current hypervisor
+openstack server show $(openstack server list -c Name -f value | grep ta-) |grep OS-EXT-SRV-ATTR:hypervisor_hostname
+# Get all hypervisors
+openstack hypervisor list
+
+# Migrate VNF
+openstack server migrate --live <NODE> --block-migration $(openstack server list -c Name -f value | grep ta-)
+openstack server resize --confirm $(openstack server list -c Name -f value | grep ta-)
 ```
 
 ## SFC
