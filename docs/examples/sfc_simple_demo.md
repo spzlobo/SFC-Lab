@@ -31,7 +31,7 @@ This step is optional you can also use your own SSH Key.
 
 ```bash
 ssh-keygen -N '' -t rsa -b 4096 -f ~/.ssh/sfc_demo -C doesnotmatter@sfc_demo
-openstack keypair add --pub-key ~/.ssh/sfc_demo.pub sfc_demo_key
+openstack keypair create --public-key ~/.ssh/sfc_demo.pub sfc_demo_key
 openstack keypair list
 ```
 
@@ -48,6 +48,13 @@ Create at first a Neutron network
 
 ```bash
 # TODO move these into openstack synatx
+
+#openstack network create --provider-network-type vxlan --provider-segment 1005 sfc_demo_net
+#openstack subnet create --dns-nameserver 8.8.8.8 --network sfc_demo_net --subnet-range 11.0.0.0/24 sfc_demo_net_subnet
+#openstack router create sfc_demo_router
+#openstack router set --route admin_floating_net sfc_demo_router
+#openstack router add subnet sfc_demo_router sfc_demo_net_subnet
+
 neutron net-create sfc_demo_net --provider:network_type=vxlan --provider:segmentation_id 1005
 neutron subnet-create --dns-nameserver 8.8.8.8 sfc_demo_net 11.0.0.0/24 --name sfc_demo_net_subnet
 neutron router-create sfc_demo_router
@@ -94,7 +101,7 @@ neutron security-group-rule-list
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net client
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net server
 sleep 15
-nova list
+openstack server list
 ```
 
 ### Create Floating IP Client
@@ -269,7 +276,7 @@ tacker sfc-classifier-delete http-classifier
 tacker sfc-classifier-delete ssh-classifier
 tacker sfc-delete firewall-chain
 
-nova delete client server
+openstack server delete client server
 
 for i in $(neutron port-list | grep 11.0.0\. | awk '{print $2}'); do neutron port-delete $i; done
 neutron router-gateway-clear sfc_demo_router
