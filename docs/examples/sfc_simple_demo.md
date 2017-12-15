@@ -433,30 +433,17 @@ sudo python vxlan_tool.py -i eth0 -d forward -v on -b  22
 
 http://IP_Controller:8181/apidoc/explorer/index.html
 
-http://10.6.71.65:8181/restconf/config/service-function:service-function
+DELETE http://10.6.71.65:8181/restconf/config/service-function:service-function
 
-DELETE
+DELETE http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders
 
-http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders
+DELETE http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains
 
-DELETE
+DELETE http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths
 
-http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains
+POST http://localhost:8181/restconf/operations/rendered-service-path:delete-rendered-path
 
-DELETE
-
-http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths
-
-DELETE
-
-http://localhost:8181/restconf/operations/rendered-service-path:delete-rendered-path
-
-POST
-
-http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists
-
-DELETE
-
+DELETE http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists
 
 
 ## Delete Openstack Configuration:
