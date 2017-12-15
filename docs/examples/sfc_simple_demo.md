@@ -93,7 +93,7 @@ neutron security-group-list
 neutron security-group-rule-list
 ```
 
-## HTTP Server and client
+## HTTP Server, Client and SF
 
 ### Create instances
 
@@ -124,6 +124,15 @@ openstack server add floating ip server $SERVER_FIP
 ssh -i ~/.ssh/sfc_demo ubuntu@$SERVER_FIP echo 'Hello Server'
 ```
 
+### Create Floating IP SF Firewall
+
+```bash
+SF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
+openstack server add floating ip sf $SF_FIP
+# test SSH
+ssh -i ~/.ssh/sfc_demo ubuntu@$SF_FIP echo 'Hello sf'
+```
+
 ## HTTP server
 
 Stop iptables and start a simple Web server
@@ -142,16 +151,8 @@ ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
 while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 ```
 
-### Create Floating IP SF Firewall
 
-```bash
-SF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
-openstack server add floating ip sf $SF_FIP
-# test SSH
-ssh -i ~/.ssh/sfc_demo ubuntu@$SF_FIP echo 'Hello sf'
-```
-
-### Configure SF Firewall
+## Configure SF Firewall
 
 ```bash
 ssh -i ~/.ssh/sfc_demo ubuntu@$SF_FIP 
@@ -164,8 +165,8 @@ sudo python vxlan_tool.py -i eth0 -d forward -v on
 ```
 
 
-Configure ODL via API REST:
-==========================
+# Configure ODL via API REST:
+
 http://IP_Controller:8181/apidoc/explorer/index.html
 
 
@@ -173,7 +174,8 @@ http://IP_Controller:8181/apidoc/explorer/index.html
 
 ### Create Service Function
 
-http://10.6.71.65:8181/restconf/config/service-function:service-function   //
+http://10.6.71.65:8181/restconf/config/service-function:service-function  
+
 POST
 
 ```bash
@@ -204,7 +206,8 @@ POST
 ```
 ### Create Service Function Forwarders
 
-http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders/
+http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders
+
 POST
 
 ```bash
@@ -256,7 +259,8 @@ POST
 ```
 ### Create Services Chain
 
-http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains/
+http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains
+
 POST
 
 ```bash
@@ -279,7 +283,8 @@ POST
 ```
 ### Create Service Function Path
 
-http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths/
+http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths
+
 POST
 
 ```bash
@@ -306,6 +311,7 @@ POST
 
 
 http://localhost:8181/restconf/operations/rendered-service-path:create-rendered-path
+
 POST
 
 ```bash
@@ -319,7 +325,8 @@ POST
 ```
 ### Check Rendered Service Path Configuration
 
-http://10.6.71.65:8181/restconf/operational/rendered-service-path:rendered-service-paths/
+http://10.6.71.65:8181/restconf/operational/rendered-service-path:rendered-service-paths
+
 GET
 
 ```bash
@@ -349,7 +356,8 @@ GET
 ```
 ### Create SFC classifier for HTTP and SSH
 
-http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
+http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists
+
 POST
 
 ```bash
@@ -411,34 +419,47 @@ POST
 }
 
 ```
-now we can adjust the firewall:
+## Modify SF Firewall
+now we can adjust the SF firewall:
 
 ```bash
 sudo pkill python
-sudo python vxlan_tool.py -i eth0 -d forward -v off -b  22
+sudo python vxlan_tool.py -i eth0 -d forward -v on -b  22
 ```
 
 # Clean Up
 
-##Delete Configuration ODL via API REST:
-======================================
+## Delete ODL Configuration via API REST:
+
 http://IP_Controller:8181/apidoc/explorer/index.html
 
-http://10.6.71.65:8181/restconf/config/service-function:service-function/
+http://10.6.71.65:8181/restconf/config/service-function:service-function
+
 DELETE
-http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders/
+
+http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders
+
 DELETE
-http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains/
+
+http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains
+
 DELETE
-http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths/
+
+http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths
+
 DELETE
+
 http://localhost:8181/restconf/operations/rendered-service-path:delete-rendered-path
+
 POST
-http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
+
+http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists
+
 DELETE
 
 
 
+## Delete Openstack Configuration:
 ```bash
 
 openstack server delete client server sf
@@ -450,7 +471,7 @@ neutron router-delete sfc_demo_router
 neutron net-delete sfc_demo_net
 neutron security-group-delete sfc_demo_sg
 ```
-
+## Delete Flows inside Compute:
 There is a bug that not all rules get cleared use this snippet as work around (but be careful):
 
 ```bash
