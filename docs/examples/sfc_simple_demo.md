@@ -1,4 +1,4 @@
-# A Simple SFC example
+# A Simple SFC example without tacker
 
 ## Setup
 
@@ -100,6 +100,7 @@ neutron security-group-rule-list
 ```bash
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net client
 nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net server
+nova boot --flavor sfc_demo_flavor --image ubuntu-xenial --key-name sfc_demo_key --security-groups sfc_demo_sg --nic net-name=sfc_demo_net sf
 sleep 15
 openstack server list
 ```
@@ -108,12 +109,13 @@ openstack server list
 
 ```bash
 CLIENT_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
-openstack server add floating ip client $CLIENT_FIP_ID
+openstack server add floating ip client $CLIENT_FIP
 # test SSH
 ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP echo 'Hello Client'
 ```
 
-# test SSH
+
+### Create Floating IP Server
 
 ```bash
 SERVER_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
@@ -140,143 +142,295 @@ ssh -i ~/.ssh/sfc_demo ubuntu@$CLIENT_FIP
 while true; do curl --connect-timeout 2 http://<server-internal>; sleep 2; done
 ```
 
-## VNFD
-
-### VNFD files
+### Create Floating IP SF Firewall
 
 ```bash
-echo -e "template_name: http-firewall-vnfd
-description: HTTP firewall
-
-service_properties:
-  Id: http-firewall-vnfd
-  vendor: tacker
-  version: 1
-  type:
-      - firewall
-vdus:
-  vdu1:
-    id: vdu1
-    vm_image: ubuntu-xenial
-    instance_type: sfc_demo_flavor
-    service_type: firewall
-
-    network_interfaces:
-      management:
-        network: sfc_demo_net
-        management: true
-
-    placement_policy:
-      availability_zone: nova
-
-    auto-scaling: noop
-    monitoring_policy: noop
-    failure_policy: respawn
-
-    user_data_format: RAW
-    user_data: |
-      #cloud-config
-      packages:
-        - python3
-        - curl
-
-      runcmd:
-        - [ curl, "https://raw.githubusercontent.com/opendaylight/sfc/master/sfc-test/nsh-tools/vxlan_tool.py", -sLO, /usr/bin/vxlan_tool.py ]
-        - [ chmod, +x, /usr/bin/vxlan_tool.py ]
-        - [ python3, /usr/bin/vxlan_tool.py, -i eth0, -d forward, -v off, -b 80 ]
-
-      ssh_authorized_keys:
-        - \"$(cat ~/.ssh/sfc_demo.pub)\"
-
-    config:
-      param0: key0
-      param1: key1" > http-firewall-vnfd.yaml
-```
-
-### Create VNFDs
-
-```bash
-tacker vnfd-create --vnfd-file ./http-firewall-vnfd.yaml
-tacker vnfd-list
-```
-
-Now we can deploy the VNF:
-
-```bash
-tacker vnf-create --name http-firewall --vnfd-name http-firewall-vnfd
-# Check the status
-openstack stack list
-tacker vnf-list
-```
-
-### Login VNF
-
-To be able to login into the VNFs we need to create a floating IP.
-
-```bash
-VNF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
-openstack server add floating ip $(openstack server list -c Name -f value | grep ta-) $CLIENT_FIP_ID
+SF_FIP=$(openstack floating ip create admin_floating_net -c floating_ip_address -f value)
+openstack server add floating ip sf $SF_FIP
 # test SSH
-ssh -i ~/.ssh/sfc_demo ubuntu@$VNF_FIP 'echo Hello'
+ssh -i ~/.ssh/sfc_demo ubuntu@$SF_FIP echo 'Hello sf'
 ```
 
-### Migration
+### Configure SF Firewall
 
-The SFC rules are currently not updated when you make a (live) migration.
+```bash
+ssh -i ~/.ssh/sfc_demo ubuntu@$SF_FIP 
+sudo apt-get install python
+sudo apt-get install curl
+curl https://raw.githubusercontent.com/opendaylight/sfc/master/sfc-test/nsh-tools/vxlan_tool.py > /usr/bin/vxlan_tool.py 
+chmod +x /usr/bin/vxlan_tool.py 
+sudo python vxlan_tool.py -i eth0 -d forward -v on
 
 ```
-# Get current hypervisor
-openstack server show $(openstack server list -c Name -f value | grep ta-) |grep OS-EXT-SRV-ATTR:hypervisor_hostname
-# Get all hypervisors
-openstack hypervisor list
 
-# Migrate VNF
-openstack server migrate --live <NODE> --block-migration $(openstack server list -c Name -f value | grep ta-)
-openstack server resize --confirm $(openstack server list -c Name -f value | grep ta-)
-```
+#################################################################################################################################
+
+Configure ODL via API REST:
+==========================
+http://IP_Controller:8181/apidoc/explorer/index.html
+
 
 ## SFC
 
-### Create SFC
+### Create Service Function
 
-```bash
-tacker sfc-create --name firewall-chain --chain http-firewall
-tacker sfc-list
-```
+http://10.6.71.65:8181/restconf/config/service-function:service-function/
+POST
+{
+  "service-functions": {
+    "service-function": [
+      {
+        "name": "sf2",
+        "sf-data-plane-locator": [
+          {
+            "name": "sf2-dpl",
+            "service-function-ovs:ovs-port": {
+              "port-id": "tap7529a4ca-cd"
+            },
+            "ip": "11.0.0.12",
+            "port": 6633,
+            "service-function-forwarder": "sff-192.168.8.4",
+            "transport": "service-locator:vxlan-gpe"
+          }
+        ],
+        "nsh-aware": true,
+        "ip-mgmt-address": "11.0.0.12",
+        "type": "firewall"
+      }
+    ]
+  }
+}
 
-### Create SFC classifier for HTTP
+### Create Service Function Forwarders
 
-```bash
-#create classifier
-tacker sfc-classifier-create --name http-classifier --chain firewall-chain --match source_port=0,dest_port=80,protocol=6
-tacker sfc-classifier-list
-```
+http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders/
+POST
+{
+  "service-function-forwarders": {
+    "service-function-forwarder": [
+      {
+        "name": "sff-192.168.8.4",
+        "ip-mgmt-address": "192.168.8.4",
+        "service-function-dictionary": [
+          {
+            "name": "sf2",
+            "sff-sf-data-plane-locator": {
+              "sff-dpl-name": "vxgpe",
+              "sf-dpl-name": "sf2-dpl"
+            }
+          }
+        ],
+        "service-node": "",
+        "sff-data-plane-locator": [
+          {
+            "name": "vxgpe",
+            "data-plane-locator": {
+              "transport": "service-locator:vxlan-gpe",
+              "ip": "192.168.8.4",
+              "port": 6633
+            },
+            "service-function-forwarder-ovs:ovs-options": {
+              "nshc4": "flow",
+              "nshc3": "flow",
+              "nsi": "flow",
+              "nshc2": "flow",
+              "nshc1": "flow",
+              "exts": "gpe",
+              "remote-ip": "flow",
+              "key": "flow",
+              "dst-port": "6633",
+              "nsp": "flow"
+            }
+          }
+        ],
+        "service-function-forwarder-ovs:ovs-bridge": {
+          "bridge-name": "br-int"
+        }
+      }
+    ]
+  }
+}
 
-### Create SFC classifier for SSH
+### Create Services Chain
 
-```bash
-tacker sfc-classifier-create --name ssh-classifier --chain firewall-chain --match source_port=0,dest_port=22,protocol=6
-tacker sfc-classifier-list
-```
+http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains/
+POST
+{
+  "service-function-chains": {
+    "service-function-chain": [
+      {
+        "name": "firewall2-chain",
+        "symmetric": false,
+        "sfc-service-function": [
+          {
+            "name": "sf2",
+            "type": "firewall"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+### Create Service Function Path
+
+http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths/
+POST
+{
+  "service-function-paths": {
+    "service-function-path": [
+      {
+        "name": "Path-firewall2-chain",
+        "service-path-hop": [
+          {
+            "hop-number": 0,
+            "service-function-name": "sf2",
+            "service-function-forwarder": "sff-192.168.8.4"
+          }
+        ],
+        "symmetric": false,
+        "service-chain-name": "firewall2-chain"
+      }
+    ]
+  }
+}
+
+### Create Rendered Service Path
+
+
+http://localhost:8181/restconf/operations/rendered-service-path:create-rendered-path
+POST
+{
+    "input": {
+        "name": "SFC-Path_rsp2",
+        "parent-service-function-path": "Path-firewall2-chain",
+        "symmetric": "false"
+    }
+}
+
+### Check Rendered Service Path Configuration
+
+http://10.6.71.65:8181/restconf/operational/rendered-service-path:rendered-service-paths/
+GET
+{
+  "rendered-service-paths": {
+    "rendered-service-path": [
+      {
+        "name": "SFC-Path_rsp2",
+        "service-chain-name": "firewall2-chain",
+        "transport-type": "service-locator:vxlan-gpe",
+        "starting-index": 255,
+        "path-id": 62,
+        "parent-service-function-path": "Path-firewall2-chain",
+        "rendered-service-path-hop": [
+          {
+            "hop-number": 0,
+            "service-function-forwarder": "sff-192.168.8.4",
+            "service-function-forwarder-locator": "vxgpe",
+            "service-index": 255,
+            "service-function-name": "sf2"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+### Create SFC classifier for HTTP and SSH
+
+http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
+POST
+{
+  "access-lists": {
+    "acl": [
+      {
+        "acl-type": "ietf-access-control-list:ipv4-acl",
+        "acl-name": "ssh-classifier",
+        "access-list-entries": {
+          "ace": [
+            {
+              "rule-name": "ssh-classifier",
+              "matches": {
+                "protocol": 6,
+                "destination-port-range": {
+                  "upper-port": 22,
+                  "lower-port": 22
+                },
+                "source-port-range": {
+                  "upper-port": 0,
+                  "lower-port": 0
+                }
+              },
+              "actions": {
+                "netvirt-sfc-acl:rsp-name": "SFC-Path_rsp2"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "acl-type": "ietf-access-control-list:ipv4-acl",
+        "acl-name": "http-classifier",
+        "access-list-entries": {
+          "ace": [
+            {
+              "rule-name": "http-classifier",
+              "matches": {
+                "protocol": 6,
+                "destination-port-range": {
+                  "upper-port": 80,
+                  "lower-port": 80
+                },
+                "source-port-range": {
+                  "upper-port": 0,
+                  "lower-port": 0
+                }
+              },
+              "actions": {
+                "netvirt-sfc-acl:rsp-name": "SFC-Path_rsp2"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+#################################################################################################################################
 
 now we can adjust the firewall:
 
 ```bash
-sudo pkill python3
-sudo python3 vxlan_tool.py -i eth0 -d forward -v off -b  22
+sudo pkill python
+sudo python vxlan_tool.py -i eth0 -d forward -v off -b  22
 ```
 
 # Clean Up
 
-```bash
-# Delete VNFDs
-tacker device-delete http-firewall
-tacker device-template-delete http-firewall-vnfd
-tacker sfc-classifier-delete http-classifier
-tacker sfc-classifier-delete ssh-classifier
-tacker sfc-delete firewall-chain
+#################################################################################################################################
 
-openstack server delete client server
+Delete Configuration ODL via API REST:
+======================================
+http://IP_Controller:8181/apidoc/explorer/index.html
+
+http://10.6.71.65:8181/restconf/config/service-function:service-function/
+DELETE
+http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders/
+DELETE
+http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains/
+DELETE
+http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths/
+DELETE
+http://localhost:8181/restconf/operations/rendered-service-path:delete-rendered-path
+POST
+http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
+DELETE
+
+#################################################################################################################################
+
+```bash
+
+openstack server delete client server sf
 
 for i in $(neutron port-list | grep 11.0.0\. | awk '{print $2}'); do neutron port-delete $i; done
 neutron router-gateway-clear sfc_demo_router
@@ -295,6 +449,3 @@ ovs-ofctl -O OpenFlow13 del-flows br-int table=11,nsi=254
 ovs-ofctl -O OpenFlow13 del-flows br-int table=1,nsi=254
 ```
 
-# TODO
-
-- [ ] Image of Setup
