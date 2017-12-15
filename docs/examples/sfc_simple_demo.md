@@ -163,7 +163,6 @@ sudo python vxlan_tool.py -i eth0 -d forward -v on
 
 ```
 
-#################################################################################################################################
 
 Configure ODL via API REST:
 ==========================
@@ -174,8 +173,10 @@ http://IP_Controller:8181/apidoc/explorer/index.html
 
 ### Create Service Function
 
-http://10.6.71.65:8181/restconf/config/service-function:service-function/
+http://10.6.71.65:8181/restconf/config/service-function:service-function   //
 POST
+
+```bash
 {
   "service-functions": {
     "service-function": [
@@ -200,11 +201,13 @@ POST
     ]
   }
 }
-
+```
 ### Create Service Function Forwarders
 
 http://10.6.71.65:8181/restconf/config/service-function-forwarder:service-function-forwarders/
 POST
+
+```bash
 {
   "service-function-forwarders": {
     "service-function-forwarder": [
@@ -250,11 +253,13 @@ POST
     ]
   }
 }
-
+```
 ### Create Services Chain
 
 http://10.6.71.65:8181/restconf/config/service-function-chain:service-function-chains/
 POST
+
+```bash
 {
   "service-function-chains": {
     "service-function-chain": [
@@ -271,11 +276,13 @@ POST
     ]
   }
 }
-
+```
 ### Create Service Function Path
 
 http://10.6.71.65:8181/restconf/config/service-function-path:service-function-paths/
 POST
+
+```bash
 {
   "service-function-paths": {
     "service-function-path": [
@@ -294,12 +301,14 @@ POST
     ]
   }
 }
-
+```
 ### Create Rendered Service Path
 
 
 http://localhost:8181/restconf/operations/rendered-service-path:create-rendered-path
 POST
+
+```bash
 {
     "input": {
         "name": "SFC-Path_rsp2",
@@ -307,11 +316,13 @@ POST
         "symmetric": "false"
     }
 }
-
+```
 ### Check Rendered Service Path Configuration
 
 http://10.6.71.65:8181/restconf/operational/rendered-service-path:rendered-service-paths/
 GET
+
+```bash
 {
   "rendered-service-paths": {
     "rendered-service-path": [
@@ -335,11 +346,13 @@ GET
     ]
   }
 }
-
+```
 ### Create SFC classifier for HTTP and SSH
 
 http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
 POST
+
+```bash
 {
   "access-lists": {
     "acl": [
@@ -396,8 +409,8 @@ POST
     ]
   }
 }
-#################################################################################################################################
 
+```
 now we can adjust the firewall:
 
 ```bash
@@ -407,9 +420,7 @@ sudo python vxlan_tool.py -i eth0 -d forward -v off -b  22
 
 # Clean Up
 
-#################################################################################################################################
-
-Delete Configuration ODL via API REST:
+##Delete Configuration ODL via API REST:
 ======================================
 http://IP_Controller:8181/apidoc/explorer/index.html
 
@@ -426,7 +437,7 @@ POST
 http://10.6.71.65:8181/restconf/config/ietf-access-control-list:access-lists/
 DELETE
 
-#################################################################################################################################
+
 
 ```bash
 
